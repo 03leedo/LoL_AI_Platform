@@ -3,7 +3,13 @@ from typing import Any
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.match import MatchEvent, MatchParticipant, MatchTimelineFeature, RiotMatch
+from app.models.match import (
+    MatchEvent,
+    MatchParticipant,
+    MatchTimelineFeature,
+    PlayerSkillScore,
+    RiotMatch,
+)
 from app.schemas.riot import TimelineFrameFeatureResponse
 
 
@@ -138,3 +144,20 @@ async def replace_timeline_features(
         )
         for row in rows
     ]
+
+
+async def upsert_player_skill_score(db: AsyncSession, analysis: dict[str, Any]) -> None:
+    scores = analysis["scores"]
+    row = PlayerSkillScore(
+        match_id=analysis["match_id"],
+        puuid=analysis["player"]["puuid"],
+        death_cost_index=scores["death_cost_index"]["value"] or 0,
+        throw_index=scores["throw_index"]["value"] or 0,
+        objective_setup_score=scores["objective_setup_score"]["value"] or 0,
+        lead_conversion_score=scores["lead_conversion_score"]["value"],
+        stability_score=scores["stability_score"]["value"] or 0,
+        confidence=scores["stability_score"]["confidence"],
+        raw_json=analysis,
+    )
+    await db.merge(row)
+    await db.commit()

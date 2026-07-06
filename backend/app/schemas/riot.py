@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -63,3 +65,40 @@ class MatchTimelineAnalysisResponse(BaseModel):
     match_id: str
     frame_count: int
     frames: list[TimelineFrameFeatureResponse]
+
+
+class PlayerAnalysisPlayerResponse(BaseModel):
+    puuid: str
+    champion: str | None
+    role: str | None
+    team: Literal["blue", "red"]
+    win: bool | None
+
+
+class PlayerAnalysisScoreResponse(BaseModel):
+    value: int | None
+    confidence: Literal["low", "medium", "high"]
+    direction: Literal["higher_is_better", "higher_is_worse"]
+
+
+class PlayerAnalysisScoresResponse(BaseModel):
+    death_cost_index: PlayerAnalysisScoreResponse
+    throw_index: PlayerAnalysisScoreResponse
+    objective_setup_score: PlayerAnalysisScoreResponse
+    lead_conversion_score: PlayerAnalysisScoreResponse
+    stability_score: PlayerAnalysisScoreResponse
+
+
+class PlayerAnalysisEvidenceResponse(BaseModel):
+    minute: int
+    type: str
+    title: str
+    description: str
+    confidence: Literal["low", "medium", "high"]
+
+
+class MatchPlayerAnalysisResponse(BaseModel):
+    match_id: str
+    player: PlayerAnalysisPlayerResponse
+    scores: PlayerAnalysisScoresResponse
+    evidence: list[PlayerAnalysisEvidenceResponse]

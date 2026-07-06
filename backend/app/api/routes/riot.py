@@ -10,14 +10,17 @@ from app.repositories.matches import (
     replace_match_participants,
     replace_timeline_features,
     upsert_match,
+    upsert_player_skill_score,
 )
 from app.repositories.summoners import upsert_summoner
 from app.schemas.riot import (
     AccountResponse,
     MatchIdsResponse,
+    MatchPlayerAnalysisResponse,
     MatchTimelineAnalysisResponse,
     SummonerLookupResponse,
 )
+from app.services.custom_metrics import PlayerAnalysisError, analyze_player_match
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
@@ -136,3 +139,44 @@ async def get_match_timeline_analysis(
         frame_count=len(saved_frames),
         frames=saved_frames,
     )
+
+
+@router.get("/matches/{match_id}/analysis", response_model=MatchPlayerAnalysisResponse)
+async def get_match_player_analysis(
+    match_id: str,
+    puuid: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+) -> MatchPlayerAnalysisResponse:
+    settings = get_settings()
+    client = RiotClient()
+
+    try:
+        match = await client.get_match(match_id)
+        timeline = await client.get_match_timeline(match_id)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
+    await upsert_match(
+        db=db,
+        match_id=match_id,
+        match=match,
+        platform_routing=settings.riot_platform_routing,
+    )
+    await replace_match_participants(db=db, match_id=match_id, match=match)
+    await replace_match_events(db=db, match_id=match_id, timeline=timeline)
+    await replace_timeline_features(db=db, match_id=match_id, features=features)
+
+    try:
+        analysis = analyze_player_match(
+            match_id=match_id,
+            puuid=puuid,
+            match=match,
+            timeline=timeline,
+            features=features,
+        )
+    except PlayerAnalysisError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    await upsert_player_skill_score(db=db, analysis=analysis)
+    return MatchPlayerAnalysisResponse(**analysis)
