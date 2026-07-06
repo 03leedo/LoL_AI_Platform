@@ -38,12 +38,14 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(31, 95, 143, 0.28);
   outline-offset: 2px;
 }
@@ -116,7 +118,9 @@ h2 {
 
 .lookup-panel,
 .status-panel,
-.result-panel {
+.result-panel,
+.match-panel,
+.analysis-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
@@ -131,13 +135,19 @@ h2 {
 }
 
 .status-panel,
-.result-panel {
+.result-panel,
+.match-panel,
+.analysis-panel {
   padding: 22px;
 }
 
 .result-panel {
   grid-column: 2;
   min-height: 256px;
+}
+
+.analysis-panel {
+  grid-column: 1 / -1;
 }
 
 .panel-heading {
@@ -176,6 +186,16 @@ input::placeholder {
   color: #9aa4b2;
 }
 
+select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 40px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fbfcfe;
+}
+
 button {
   display: inline-flex;
   align-items: center;
@@ -208,6 +228,19 @@ button:disabled {
 .metric-list {
   display: grid;
   gap: 10px;
+}
+
+.match-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.match-picker label {
+  margin-bottom: -5px;
+}
+
+.match-picker button {
+  margin-top: 4px;
 }
 
 .status-row,
@@ -297,8 +330,64 @@ button:disabled {
   gap: 10px;
 }
 
+.analysis-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .result-item.compact {
   grid-column: 1 / -1;
+}
+
+.timeline-chart {
+  min-height: 250px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+
+.timeline-chart.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.timeline-chart svg {
+  display: block;
+  width: 100%;
+  min-height: 250px;
+}
+
+.timeline-chart text {
+  fill: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.chart-zero {
+  stroke: rgba(102, 112, 133, 0.45);
+  stroke-dasharray: 5 6;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.chart-endpoint {
+  fill: var(--rust);
+  stroke: white;
+  stroke-width: 3;
 }
 
 @media (max-width: 860px) {
@@ -319,15 +408,19 @@ button:disabled {
 
   .lookup-panel,
   .status-panel,
-  .result-panel {
+  .result-panel,
+  .match-panel,
+  .analysis-panel {
     min-height: auto;
   }
 
-  .result-panel {
+  .result-panel,
+  .analysis-panel {
     grid-column: auto;
   }
 
-  .result-grid {
+  .result-grid,
+  .analysis-grid {
     grid-template-columns: 1fr;
   }
 }
