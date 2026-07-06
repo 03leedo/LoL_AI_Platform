@@ -4,18 +4,22 @@ import {
   Activity,
   BarChart3,
   Database,
+  ListChecks,
   Loader2,
   Search,
   ShieldCheck,
   Swords
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
 
 import {
   getHealth,
+  getMatchPlayerAnalysis,
   getMatchTimelineAnalysis,
   getRecentMatchIds,
+  MatchPlayerAnalysisResponse,
   MatchTimelineAnalysisResponse,
+  PlayerAnalysisScore,
   searchSummoner,
   SummonerLookupResponse,
   SystemHealth,
@@ -41,6 +45,9 @@ export default function Home() {
   const [timelineState, setTimelineState] = useState<LoadState>("idle");
   const [timeline, setTimeline] = useState<MatchTimelineAnalysisResponse | null>(null);
   const [timelineError, setTimelineError] = useState("");
+  const [playerAnalysisState, setPlayerAnalysisState] = useState<LoadState>("idle");
+  const [playerAnalysis, setPlayerAnalysis] = useState<MatchPlayerAnalysisResponse | null>(null);
+  const [playerAnalysisError, setPlayerAnalysisError] = useState("");
 
   useEffect(() => {
     getHealth()
@@ -94,21 +101,35 @@ export default function Home() {
   }
 
   async function onAnalyzeTimeline() {
-    if (!selectedMatchId) {
+    if (!selectedMatchId || !lookup) {
       return;
     }
 
     setTimelineState("loading");
+    setPlayerAnalysisState("loading");
     setTimelineError("");
+    setPlayerAnalysisError("");
     setTimeline(null);
+    setPlayerAnalysis(null);
 
     try {
-      const data = await getMatchTimelineAnalysis(selectedMatchId);
-      setTimeline(data);
+      const [timelineData, playerAnalysisData] = await Promise.all([
+        getMatchTimelineAnalysis(selectedMatchId),
+        getMatchPlayerAnalysis({
+          matchId: selectedMatchId,
+          puuid: lookup.account.puuid
+        })
+      ]);
+      setTimeline(timelineData);
+      setPlayerAnalysis(playerAnalysisData);
       setTimelineState("success");
+      setPlayerAnalysisState("success");
     } catch (err) {
-      setTimelineError(err instanceof Error ? err.message : "Timeline analysis failed");
+      const message = err instanceof Error ? err.message : "Match analysis failed";
+      setTimelineError(message);
+      setPlayerAnalysisError(message);
       setTimelineState("error");
+      setPlayerAnalysisState("error");
     }
   }
 
@@ -117,6 +138,9 @@ export default function Home() {
     setTimelineState("idle");
     setTimeline(null);
     setTimelineError("");
+    setPlayerAnalysisState("idle");
+    setPlayerAnalysis(null);
+    setPlayerAnalysisError("");
   }
 
   function resetMatches() {
@@ -127,6 +151,9 @@ export default function Home() {
     setTimelineState("idle");
     setTimeline(null);
     setTimelineError("");
+    setPlayerAnalysisState("idle");
+    setPlayerAnalysis(null);
+    setPlayerAnalysisError("");
   }
 
   const apiStatus = healthError ? "offline" : health?.status ?? "checking";
@@ -244,13 +271,17 @@ export default function Home() {
                   </option>
                 ))}
               </select>
-              <button type="button" onClick={onAnalyzeTimeline} disabled={timelineState === "loading"}>
+              <button
+                type="button"
+                onClick={onAnalyzeTimeline}
+                disabled={timelineState === "loading" || !lookup}
+              >
                 {timelineState === "loading" ? (
                   <Loader2 className="spin" size={18} aria-hidden="true" />
                 ) : (
                   <BarChart3 size={18} aria-hidden="true" />
                 )}
-                <span>Analyze timeline</span>
+                <span>Analyze match</span>
               </button>
             </div>
           )}
@@ -309,6 +340,59 @@ export default function Home() {
             </div>
           )}
         </section>
+
+        <section className="player-analysis-panel" aria-live="polite">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Player analysis</p>
+              <h2>Risk and conversion review</h2>
+            </div>
+            <ListChecks size={22} aria-hidden="true" />
+          </div>
+
+          {playerAnalysisState === "idle" && <EmptyResult icon="chart" label="No player analysis loaded" />}
+          {playerAnalysisState === "loading" && <p className="state-copy">Reviewing player decisions...</p>}
+          {playerAnalysisState === "error" && <p className="error-copy">{playerAnalysisError}</p>}
+          {playerAnalysisState === "success" && playerAnalysis && (
+            <div className="player-analysis-stack">
+              <div className="player-summary">
+                <ResultItem label="Champion" value={playerAnalysis.player.champion ?? "-"} />
+                <ResultItem label="Role" value={formatRole(playerAnalysis.player.role)} />
+                <ResultItem label="Side" value={playerAnalysis.player.team} />
+                <ResultItem label="Result" value={playerAnalysis.player.win === null ? "-" : playerAnalysis.player.win ? "Win" : "Loss"} />
+              </div>
+
+              <div className="score-sections">
+                <ScoreBlock title="Overall risk">
+                  <ScoreCard label="Death Cost" score={playerAnalysis.scores.death_cost_index} />
+                  <ScoreCard label="Throw Index" score={playerAnalysis.scores.throw_index} />
+                  <ScoreCard label="Stability" score={playerAnalysis.scores.stability_score} />
+                </ScoreBlock>
+
+                <ScoreBlock title="Operation conversion">
+                  <ScoreCard label="Objective Setup" score={playerAnalysis.scores.objective_setup_score} />
+                  <ScoreCard label="Lead Conversion" score={playerAnalysis.scores.lead_conversion_score} />
+                </ScoreBlock>
+              </div>
+
+              <div className="evidence-panel">
+                <h3>Key evidence</h3>
+                <div className="evidence-list">
+                  {playerAnalysis.evidence.map((item, index) => (
+                    <article className="evidence-item" key={`${item.type}-${item.minute}-${index}`}>
+                      <div>
+                        <span className="evidence-minute">{item.minute}m</span>
+                        <strong>{item.title}</strong>
+                      </div>
+                      <p>{item.description}</p>
+                      <ConfidencePill confidence={item.confidence} />
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       </section>
     </main>
   );
@@ -357,6 +441,34 @@ function ResultItem({
       <strong>{value}</strong>
     </div>
   );
+}
+
+function ScoreBlock({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="score-block">
+      <h3>{title}</h3>
+      <div className="score-list">{children}</div>
+    </section>
+  );
+}
+
+function ScoreCard({ label, score }: { label: string; score: PlayerAnalysisScore }) {
+  return (
+    <div className={score.direction === "higher_is_worse" ? "score-card is-risk" : "score-card"}>
+      <div>
+        <span>{label}</span>
+        <strong>{score.value === null ? "N/A" : score.value}</strong>
+      </div>
+      <div className="score-meta">
+        <span>{score.direction === "higher_is_worse" ? "Higher is worse" : "Higher is better"}</span>
+        <ConfidencePill confidence={score.confidence} />
+      </div>
+    </div>
+  );
+}
+
+function ConfidencePill({ confidence }: { confidence: "low" | "medium" | "high" }) {
+  return <span className={`confidence-pill ${confidence}`}>{confidence}</span>;
 }
 
 function TimelineChart({ frames }: { frames: TimelineFrameFeature[] }) {
@@ -413,4 +525,11 @@ function formatDiff(value: number) {
     return `+${value.toLocaleString()}`;
   }
   return value.toLocaleString();
+}
+
+function formatRole(role: string | null) {
+  if (!role) {
+    return "-";
+  }
+  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
 }

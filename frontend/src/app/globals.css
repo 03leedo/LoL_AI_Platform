@@ -120,7 +120,8 @@ h2 {
 .status-panel,
 .result-panel,
 .match-panel,
-.analysis-panel {
+.analysis-panel,
+.player-analysis-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
@@ -137,7 +138,8 @@ h2 {
 .status-panel,
 .result-panel,
 .match-panel,
-.analysis-panel {
+.analysis-panel,
+.player-analysis-panel {
   padding: 22px;
 }
 
@@ -146,7 +148,8 @@ h2 {
   min-height: 256px;
 }
 
-.analysis-panel {
+.analysis-panel,
+.player-analysis-panel {
   grid-column: 1 / -1;
 }
 
@@ -341,6 +344,145 @@ button:disabled {
   gap: 10px;
 }
 
+.player-analysis-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.player-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.score-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.score-block,
+.evidence-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 16px;
+}
+
+.score-block h3,
+.evidence-panel h3 {
+  margin: 0 0 12px;
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.score-list {
+  display: grid;
+  gap: 10px;
+}
+
+.score-card {
+  display: grid;
+  gap: 10px;
+  min-height: 88px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+
+.score-card.is-risk strong {
+  color: #9c3d2f;
+}
+
+.score-card div:first-child {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.score-card span,
+.score-meta span,
+.evidence-item p {
+  color: var(--muted);
+}
+
+.score-card strong {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.score-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.confidence-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: var(--blue);
+  background: rgba(31, 95, 143, 0.12);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.confidence-pill.low {
+  color: var(--amber);
+  background: rgba(185, 131, 34, 0.13);
+}
+
+.confidence-pill.high {
+  color: var(--green);
+  background: rgba(47, 125, 88, 0.13);
+}
+
+.evidence-list {
+  display: grid;
+  gap: 10px;
+}
+
+.evidence-item {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+
+.evidence-item div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.evidence-item p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.evidence-minute {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 28px;
+  border-radius: 999px;
+  color: white;
+  background: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .result-item.compact {
   grid-column: 1 / -1;
 }
@@ -410,17 +552,21 @@ button:disabled {
   .status-panel,
   .result-panel,
   .match-panel,
-  .analysis-panel {
+  .analysis-panel,
+  .player-analysis-panel {
     min-height: auto;
   }
 
   .result-panel,
-  .analysis-panel {
+  .analysis-panel,
+  .player-analysis-panel {
     grid-column: auto;
   }
 
   .result-grid,
-  .analysis-grid {
+  .analysis-grid,
+  .player-summary,
+  .score-sections {
     grid-template-columns: 1fr;
   }
 }

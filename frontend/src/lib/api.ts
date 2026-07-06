@@ -60,6 +60,41 @@ export type MatchTimelineAnalysisResponse = {
   frames: TimelineFrameFeature[];
 };
 
+export type ScoreConfidence = "low" | "medium" | "high";
+
+export type ScoreDirection = "higher_is_better" | "higher_is_worse";
+
+export type PlayerAnalysisScore = {
+  value: number | null;
+  confidence: ScoreConfidence;
+  direction: ScoreDirection;
+};
+
+export type MatchPlayerAnalysisResponse = {
+  match_id: string;
+  player: {
+    puuid: string;
+    champion: string | null;
+    role: string | null;
+    team: "blue" | "red";
+    win: boolean | null;
+  };
+  scores: {
+    death_cost_index: PlayerAnalysisScore;
+    throw_index: PlayerAnalysisScore;
+    objective_setup_score: PlayerAnalysisScore;
+    lead_conversion_score: PlayerAnalysisScore;
+    stability_score: PlayerAnalysisScore;
+  };
+  evidence: Array<{
+    minute: number;
+    type: string;
+    title: string;
+    description: string;
+    confidence: ScoreConfidence;
+  }>;
+};
+
 export async function getHealth(): Promise<SystemHealth> {
   const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
     cache: "no-store"
@@ -102,6 +137,27 @@ export async function getMatchTimelineAnalysis(matchId: string): Promise<MatchTi
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Timeline analysis failed"));
+  }
+
+  return response.json();
+}
+
+export async function getMatchPlayerAnalysis({
+  matchId,
+  puuid
+}: {
+  matchId: string;
+  puuid: string;
+}): Promise<MatchPlayerAnalysisResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/analysis?puuid=${encodeURIComponent(puuid)}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Player analysis failed"));
   }
 
   return response.json();
