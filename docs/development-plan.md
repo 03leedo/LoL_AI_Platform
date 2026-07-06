@@ -50,22 +50,48 @@ Acceptance criteria:
 
 ## Sprint 3: Win Probability
 
-Goal: convert timeline features into an explainable rule-based win probability.
+Goal: convert timeline features into custom coaching metrics, then layer an
+explainable rule-based win probability on top.
 
 Implementation checkpoints:
 
-- Add a rule-based predictor using gold, XP, CS, objectives, game time, and side.
-- Store prediction points per match and minute.
-- Render win probability over time beside the timeline chart.
-- Add test fixtures for deterministic predictor behavior.
+- Normalize match participants and timeline events.
+- Add player skill score storage for match-level analysis outputs.
+- Implement Death Cost Index, Throw Index, Objective Setup Score, Lead
+  Conversion Score, and Stability Score.
+- Return evidence for each high-impact death, objective setup, and lead
+  conversion event.
+- Add a rule-based win probability predictor after these coaching metrics are
+  stable.
 
 Acceptance criteria:
 
-- Backend returns a probability series between 0 and 1 for each analyzed frame.
-- The response includes feature contributions or simple explanations.
-- Frontend shows probability changes without requiring ML infrastructure.
+- Backend returns player, scores, and evidence for a selected match and PUUID.
+- Risk metrics are clearly marked as worse when higher, while setup/conversion
+  metrics are better when higher.
+- Evidence copy avoids intent claims and includes confidence.
+- Frontend shows risk cards, operating conversion cards, and evidence without
+  requiring Vision data.
 
-## Sprint 4: AI Agent
+## Sprint 4: Rank Role Analyzer
+
+Goal: analyze ranked match history by role and recommend the player's strongest
+positions.
+
+Implementation checkpoints:
+
+- Classify stored matches by top, jungle, mid, bottom, and support.
+- Aggregate common skill scores and role-specific indicators.
+- Calculate role fit with sample-size confidence.
+- Add rank analysis tabs and recommendation cards to the frontend.
+
+Acceptance criteria:
+
+- Backend returns role fit scores, recent form, and confidence by position.
+- Frontend can compare all positions and highlight recommended/caution roles.
+- Low-sample roles are not over-ranked without confidence warnings.
+
+## Sprint 5: AI Agent
 
 Goal: generate player-readable match review reports from recent match patterns.
 
@@ -83,7 +109,7 @@ Acceptance criteria:
 - AI report calls are isolated behind one service interface.
 - Frontend displays report state, errors, and generated recommendations.
 
-## Sprint 5: Machine Learning
+## Sprint 6: Machine Learning
 
 Goal: replace the rule-based predictor with trained model inference.
 
@@ -100,7 +126,7 @@ Acceptance criteria:
 - Backend can serve the selected model behind the same prediction API.
 - Rule-based predictor remains available as a fallback.
 
-## Sprint 6: Production
+## Sprint 7: Production
 
 Goal: harden data access, deployment, and operations.
 
@@ -118,3 +144,24 @@ Acceptance criteria:
 - CI runs backend and frontend checks.
 - Load test thresholds are documented.
 - Deployment configuration is environment-driven and secret-safe.
+
+## Expansion: Highlight And Vision Analysis
+
+Goal: add post-game replay assistance after the Riot API based MVP is useful on
+its own.
+
+Implementation checkpoints:
+
+- Detect highlight candidates from timeline events and score them.
+- Accept uploaded video clips and extract event windows with FFmpeg.
+- Sample frames and send them to a Vision provider for minimap, positioning,
+  wave, and kiting support signals.
+- Keep all Vision claims phrased as evidence-backed possibilities with
+  confidence, not certainty.
+- Defer local recording agents until upload-based highlights are proven.
+
+Out of scope for MVP:
+
+- Real-time in-game advice.
+- Automatic local screen recording.
+- Vision-only scoring without Riot API evidence.
