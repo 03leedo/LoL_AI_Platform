@@ -44,6 +44,11 @@ class RiotClient:
         path = f"/lol/match/v5/matches/{encoded_match_id}"
         return await self._get(self.regional_routing, path)
 
+    async def get_match_timeline(self, match_id: str) -> dict[str, Any]:
+        encoded_match_id = quote(match_id, safe="")
+        path = f"/lol/match/v5/matches/{encoded_match_id}/timeline"
+        return await self._get(self.regional_routing, path)
+
     async def _get(
         self,
         routing: str,

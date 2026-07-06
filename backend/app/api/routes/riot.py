@@ -5,9 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.repositories.matches import replace_timeline_features, upsert_match
 from app.repositories.summoners import upsert_summoner
-from app.schemas.riot import AccountResponse, MatchIdsResponse, SummonerLookupResponse
+from app.schemas.riot import (
+    AccountResponse,
+    MatchIdsResponse,
+    MatchTimelineAnalysisResponse,
+    SummonerLookupResponse,
+)
 from app.services.riot_client import RiotApiError, RiotClient
+from app.services.timeline_analyzer import analyze_match_timeline
 
 router = APIRouter()
 
@@ -92,3 +99,33 @@ async def get_match_detail(match_id: str) -> dict[str, Any]:
         return await client.get_match(match_id)
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
+
+
+@router.get("/matches/{match_id}/timeline", response_model=MatchTimelineAnalysisResponse)
+async def get_match_timeline_analysis(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> MatchTimelineAnalysisResponse:
+    settings = get_settings()
+    client = RiotClient()
+
+    try:
+        match = await client.get_match(match_id)
+        timeline = await client.get_match_timeline(match_id)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
+    await upsert_match(
+        db=db,
+        match_id=match_id,
+        match=match,
+        platform_routing=settings.riot_platform_routing,
+    )
+    saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
+
+    return MatchTimelineAnalysisResponse(
+        match_id=match_id,
+        frame_count=len(saved_frames),
+        frames=saved_frames,
+    )
