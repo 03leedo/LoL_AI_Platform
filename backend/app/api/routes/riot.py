@@ -5,7 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.repositories.matches import replace_timeline_features, upsert_match
+from app.repositories.matches import (
+    replace_match_events,
+    replace_match_participants,
+    replace_timeline_features,
+    upsert_match,
+)
 from app.repositories.summoners import upsert_summoner
 from app.schemas.riot import (
     AccountResponse,
@@ -122,6 +127,8 @@ async def get_match_timeline_analysis(
         match=match,
         platform_routing=settings.riot_platform_routing,
     )
+    await replace_match_participants(db=db, match_id=match_id, match=match)
+    await replace_match_events(db=db, match_id=match_id, timeline=timeline)
     saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
 
     return MatchTimelineAnalysisResponse(
