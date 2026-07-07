@@ -626,9 +626,31 @@ button:disabled {
   background: var(--green-soft);
 }
 
-.context-insight strong {
+.context-insight-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.context-insight-title strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 0.9rem;
   line-height: 1.3;
+}
+
+.context-insight-title span {
+  flex: 0 0 auto;
+  min-height: 21px;
+  padding: 3px 7px;
+  border: 1px solid rgba(23, 32, 45, 0.12);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.68rem;
+  font-weight: 950;
+  text-transform: uppercase;
 }
 
 .context-insight p {

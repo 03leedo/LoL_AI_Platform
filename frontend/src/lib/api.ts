@@ -165,6 +165,7 @@ export type EvidenceContext = {
     tone: "risk" | "positive" | "info";
     title: string;
     description: string;
+    source: "rules" | "llm";
   }>;
   snapshots: EvidenceContextSnapshot[];
   events: EvidenceContextEvent[];

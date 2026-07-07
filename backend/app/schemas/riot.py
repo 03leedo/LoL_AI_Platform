@@ -172,6 +172,7 @@ class EvidenceContextInsightResponse(BaseModel):
     tone: Literal["risk", "positive", "info"]
     title: str
     description: str
+    source: Literal["rules", "llm"] = "rules"
 
 
 class EvidenceContextResponse(BaseModel):

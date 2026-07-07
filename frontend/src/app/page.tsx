@@ -486,7 +486,10 @@ function EvidenceContextViewer({
       <div className="context-insights">
         {context.insights.map((insight, index) => (
           <div className={`context-insight ${insight.tone}`} key={`${insight.tone}-${index}`}>
-            <strong>{insight.title}</strong>
+            <div className="context-insight-title">
+              <strong>{insight.title}</strong>
+              <span>{insight.source === "llm" ? "AI" : "Rule"}</span>
+            </div>
             <p>{insight.description}</p>
           </div>
         ))}

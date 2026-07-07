@@ -28,6 +28,7 @@ from app.schemas.riot import (
 from app.services.custom_metrics import PlayerAnalysisError, analyze_player_match
 from app.services.evidence_contexts import attach_evidence_contexts, build_review_assets
 from app.services.key_events import extract_key_events
+from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
@@ -231,6 +232,11 @@ async def get_match_review(
         timeline=timeline,
         puuid=puuid,
     )
+    try:
+        analysis = await enrich_analysis_with_llm_feedback(analysis)
+    except LlmFeedbackError as exc:
+        logger.warning("LLM feedback skipped for %s: %s", match_id, exc)
+
     key_events = extract_key_events(match=match, timeline=timeline, puuid=puuid)
     assets = build_review_assets(match)
 
@@ -298,6 +304,17 @@ async def get_match_player_analysis(
         )
     except PlayerAnalysisError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    analysis = attach_evidence_contexts(
+        analysis=analysis,
+        match=match,
+        timeline=timeline,
+        puuid=puuid,
+    )
+    try:
+        analysis = await enrich_analysis_with_llm_feedback(analysis)
+    except LlmFeedbackError as exc:
+        logger.warning("LLM feedback skipped for %s: %s", match_id, exc)
 
     await upsert_player_skill_score(db=db, analysis=analysis)
     return MatchPlayerAnalysisResponse(**analysis)

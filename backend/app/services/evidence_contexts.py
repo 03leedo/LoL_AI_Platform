@@ -405,16 +405,50 @@ def _context_insights(
     ally_objectives = [
         event for event in context_events if event["type"] in objective_types and event["team"] == player_team
     ]
+    total_deaths = len(ally_deaths) + len(enemy_deaths)
     insights: list[dict[str, str]] = []
 
-    if enemy_wards_before and len(enemy_wards_before) >= len(ally_wards_before) and ally_deaths and enemy_objectives:
+    if total_deaths >= 3 and ally_deaths and enemy_objectives:
         insights.append(
             {
                 "tone": "risk",
-                "title": "상대가 먼저 자리 잡은 뒤 진입한 패턴",
+                "title": "한타 패배가 오브젝트 손실로 이어진 구간",
                 "description": (
-                    "전투 전에 상대 시야 이벤트가 더 먼저 잡혔고, 이후 아군 사망과 오브젝트 손실이 이어졌습니다. "
-                    "상대가 시야를 잡아둔 구역에 늦게 들어가다 잘렸을 가능성이 높습니다."
+                    "30초 전후 구간에 여러 명의 사망이 몰려 있고, 이후 상대 오브젝트 획득이 이어졌습니다. "
+                    "시야 문제 하나라기보다 한타 결과가 그대로 목적물 손실로 전환된 장면일 가능성이 높습니다."
+                ),
+            }
+        )
+    elif total_deaths >= 3 and enemy_deaths and ally_objectives:
+        insights.append(
+            {
+                "tone": "positive",
+                "title": "한타 승리를 오브젝트로 전환한 구간",
+                "description": (
+                    "교전에서 상대 사망이 여러 번 발생했고, 이후 아군 오브젝트 획득이 이어졌습니다. "
+                    "킬을 맵 자원으로 연결한 좋은 전환으로 볼 수 있습니다."
+                ),
+            }
+        )
+    elif len(ally_deaths) == 1 and not enemy_deaths and enemy_objectives:
+        insights.append(
+            {
+                "tone": "risk",
+                "title": "픽오프 이후 오브젝트를 내준 구간",
+                "description": (
+                    "큰 한타보다는 아군 한 명이 먼저 잘린 뒤 상대가 오브젝트로 전환한 흐름에 가깝습니다. "
+                    "이런 장면은 합류 전 위치 노출이나 진입 경로 선택을 같이 복기하는 편이 좋습니다."
+                ),
+            }
+        )
+    elif len(enemy_deaths) == 1 and not ally_deaths and ally_objectives:
+        insights.append(
+            {
+                "tone": "positive",
+                "title": "픽오프를 오브젝트로 연결한 구간",
+                "description": (
+                    "상대 한 명을 먼저 끊은 뒤 아군이 목적물로 전환했습니다. "
+                    "단순 킬에서 멈추지 않고 다음 행동까지 연결한 장면으로 볼 수 있습니다."
                 ),
             }
         )
@@ -422,27 +456,26 @@ def _context_insights(
         insights.append(
             {
                 "tone": "risk",
-                "title": "사망이 오브젝트 손실로 연결된 구간",
+                "title": "교전 손실이 오브젝트 손실로 연결된 구간",
                 "description": (
                     "이 구간에서는 아군 사망 이후 상대 오브젝트 획득이 이어졌습니다. "
                     "단순 교전 손실보다 다음 목적물까지 같이 잃은 흐름으로 보는 편이 좋습니다."
                 ),
             }
         )
-
-    if len(enemy_wards_before) > len(ally_wards_before) and not insights:
+    elif enemy_objectives and not ally_deaths and not enemy_deaths:
         insights.append(
             {
                 "tone": "risk",
-                "title": "시야 준비가 상대 쪽에 기운 구간",
+                "title": "교전 없이 오브젝트를 내준 구간",
                 "description": (
-                    "전투 전 상대 와드 이벤트가 더 많이 잡혔습니다. "
-                    "진입하기 전에 렌즈나 제어 와드로 안전 구역을 넓히는 판단이 필요했을 가능성이 있습니다."
+                    "30초 전후 구간에 큰 킬 로그 없이 상대가 오브젝트를 가져갔습니다. "
+                    "교전을 피한 판단이었는지, 위치가 늦어서 contest 자체가 어려웠는지 확인할 필요가 있습니다."
                 ),
             }
         )
 
-    if ally_wards_before and ally_objectives and not ally_deaths:
+    if not insights and ally_wards_before and ally_objectives and not ally_deaths:
         insights.append(
             {
                 "tone": "positive",
@@ -454,7 +487,7 @@ def _context_insights(
             }
         )
 
-    if enemy_deaths and ally_objectives and not insights:
+    if not insights and enemy_deaths and ally_objectives:
         insights.append(
             {
                 "tone": "positive",
@@ -462,6 +495,29 @@ def _context_insights(
                 "description": (
                     "상대 사망 이후 아군 오브젝트 획득이 이어졌습니다. "
                     "킬 이후 맵 자원으로 연결한 좋은 전환으로 볼 수 있습니다."
+                ),
+            }
+        )
+
+    if len(enemy_wards_before) > len(ally_wards_before):
+        insights.append(
+            {
+                "tone": "risk",
+                "title": "시야 준비는 상대 쪽에 더 기운 편",
+                "description": (
+                    "전투 전 상대 와드 이벤트가 더 많이 잡혔습니다. "
+                    "다만 이 장면의 핵심 원인이 시야라고 단정하기보다는, 교전 결과와 함께 보조 근거로 보는 것이 좋습니다."
+                ),
+            }
+        )
+    elif len(ally_wards_before) > len(enemy_wards_before) and ally_objectives:
+        insights.append(
+            {
+                "tone": "positive",
+                "title": "아군 시야 준비가 보조 근거로 잡힌 구간",
+                "description": (
+                    "오브젝트 전 아군 와드 이벤트가 상대보다 더 많이 잡혔습니다. "
+                    "교전이나 픽오프 이후 목적물 전환을 뒷받침한 준비였을 가능성이 있습니다."
                 ),
             }
         )
@@ -477,6 +533,9 @@ def _context_insights(
                 ),
             }
         )
+
+    for insight in insights:
+        insight.setdefault("source", "rules")
 
     return insights[:2]
 

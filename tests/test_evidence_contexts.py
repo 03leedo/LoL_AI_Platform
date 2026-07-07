@@ -28,8 +28,8 @@ def make_match() -> dict:
     }
 
 
-def make_timeline() -> dict:
-    events = [
+def make_timeline(events: list[dict] | None = None) -> dict:
+    events = events or [
         {
             "type": "WARD_PLACED",
             "timestamp": 40_000,
@@ -133,6 +133,59 @@ class EvidenceContextsTest(unittest.TestCase):
 
     def test_review_assets_include_ddragon_version(self) -> None:
         self.assertEqual(build_review_assets(make_match())["data_dragon_version"], "15.13.1")
+
+    def test_teamfight_loss_insight_is_prioritized_over_vision(self) -> None:
+        timeline = make_timeline(
+            [
+                {
+                    "type": "WARD_PLACED",
+                    "timestamp": 38_000,
+                    "creatorId": 6,
+                    "wardType": "CONTROL_WARD",
+                },
+                {"type": "CHAMPION_KILL", "timestamp": 62_000, "killerId": 6, "victimId": 1},
+                {"type": "CHAMPION_KILL", "timestamp": 66_000, "killerId": 7, "victimId": 2},
+                {"type": "CHAMPION_KILL", "timestamp": 70_000, "killerId": 3, "victimId": 8},
+                {
+                    "type": "ELITE_MONSTER_KILL",
+                    "timestamp": 84_000,
+                    "killerId": 6,
+                    "killerTeamId": 200,
+                    "monsterType": "DRAGON",
+                },
+            ]
+        )
+        analysis = {
+            "match_id": "KR_1",
+            "player": {
+                "puuid": PLAYER_PUUID,
+                "champion": "Ahri",
+                "role": "MIDDLE",
+                "team": "blue",
+                "win": False,
+            },
+            "scores": {},
+            "evidence": [
+                {
+                    "minute": 1,
+                    "type": "death_cost",
+                    "title": "Death was followed by objective loss",
+                    "description": "The opposing team secured Dragon after the fight.",
+                    "confidence": "medium",
+                }
+            ],
+        }
+
+        enriched = attach_evidence_contexts(
+            analysis=analysis,
+            match=make_match(),
+            timeline=timeline,
+            puuid=PLAYER_PUUID,
+        )
+
+        insights = enriched["evidence"][0]["context"]["insights"]
+        self.assertIn("한타", insights[0]["title"])
+        self.assertIn("시야", insights[1]["title"])
 
 
 if __name__ == "__main__":

@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     riot_platform_routing: str = "kr"
     riot_regional_routing: str = "asia"
 
+    llm_feedback_enabled: bool = False
+    openai_api_key: str = ""
+    openai_model: str = "gpt-5.4-mini"
+    openai_base_url: str = "https://api.openai.com/v1"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
