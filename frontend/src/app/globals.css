@@ -191,6 +191,32 @@ button:disabled {
   gap: 18px;
 }
 
+.match-layout.is-single {
+  grid-template-columns: minmax(0, 760px);
+}
+
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--blue);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
 .history-panel,
 .review-panel {
   border: 1px solid var(--line);
