@@ -49,6 +49,24 @@ Open:
 - Backend health: http://localhost:8000/api/v1/health
 - API docs: http://localhost:8000/docs
 
+## Database migrations
+
+Schema is managed with Alembic (`backend/alembic.ini`, `backend/migrations/`).
+In development the backend still auto-creates missing tables on startup
+(`AUTO_CREATE_TABLES`), so migrations are optional locally.
+
+```bash
+cd backend
+alembic stamp head     # one-time, for a dev DB that predates Alembic
+alembic upgrade head   # fresh DB, or applying new revisions
+```
+
+## Tests
+
+```bash
+backend/.venv/bin/python -m pytest   # config in pytest.ini (pythonpath=backend)
+```
+
 ## Current API surface
 
 - `GET /api/v1/health`

@@ -275,14 +275,15 @@ moments (T1에서 이미 축적) → Highlight Score 상위 구간 선정
 
 ---
 
-## 9. 바로 다음 작업 — M0 체크리스트
+## 9. M0 체크리스트 — 완료 (2026-07-07)
 
-- [ ] riot_client: 토큰 버킷 rate limiter + 429 백오프 + 재시도
-- [ ] 매치/타임라인 DB-first 조회 (있으면 Riot 호출 스킵)
-- [ ] alembic 도입 (기존 테이블 baseline 마이그레이션)
-- [ ] `moments` / `metric_scores` / `ingest_jobs` 테이블 + 리포지토리
-- [ ] key_events → moments 영속화 연결 (기존 응답 형식은 유지)
-- [ ] 프론트 라우트 분리: `/` 검색 · `/summoner/[riotId]` · `/match/[matchId]`
-- [ ] (준비) Riot 프로덕션 키 신청서 제출
+- [x] riot_client: 토큰 버킷 rate limiter(18/1s + 95/120s) + 429 Retry-After 백오프 + 5xx 재시도
+- [x] 매치/타임라인 DB-first 조회 (`services/match_data.py` — 있으면 Riot 호출 스킵, 신규 fetch는 즉시 커밋)
+- [x] alembic 도입 (`backend/migrations/` — 0001 baseline, 0002 M0 테이블; dev는 auto_create 병행)
+- [x] `moments` / `metric_scores` / `ingest_jobs` / `riot_match_timelines` 테이블 + 리포지토리
+- [x] key_events → moments 영속화 연결 (리뷰 API 응답 형식은 유지)
+- [x] 프론트 라우트 분리: `/` 검색 · `/summoner/[riotId]` · `/match/[matchId]` (+ components/ 추출)
+- [x] Riot 개발자 포털 앱 URL 인증 완료 — 프로덕션 키 신청은 M5 배포 후 갱신
 
-M0가 끝나면 M1(신규 지표 + 히트맵)부터는 화면에 보이는 것이 매주 늘어나는 구간에 들어간다.
+**다음: M1 — 신규 지표(골드 리텐션·도박사·한타 생존) + 킬/데스 히트맵 + 승률 곡선 v0.**
+여기서부터는 화면에 보이는 것이 매주 늘어나는 구간이다.
