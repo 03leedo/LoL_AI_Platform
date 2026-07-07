@@ -1,5 +1,10 @@
 # LoL AI Platform Development Plan
 
+> **Superseded (2026-07-07):** the current roadmap lives in
+> [master-plan.md](./master-plan.md), which integrates the expansion PRD
+> ([PRD-expansion.md](./PRD-expansion.md)), new custom-metric ideas, and the
+> replay/vision extension strategy. This file is kept for sprint history.
+
 This plan turns the PDF sprint roadmap into implementation checkpoints that
 match the current repository.
 

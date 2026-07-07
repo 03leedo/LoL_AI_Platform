@@ -57,11 +57,23 @@ Open:
 - `GET /api/v1/riot/summoner/{game_name}/{tag_line}/matches?count=10`
 - `GET /api/v1/riot/matches/{match_id}`
 
-## Sprint roadmap
+## Documentation
 
-1. Foundation: app skeleton, Riot lookup, match details, initial schema.
-2. Timeline analytics: timeline ingestion, feature extraction, charts.
-3. Win probability: rule-based model, graphing, feature refinement.
-4. AI agent: automated match review, pattern detection, coaching report.
-5. Machine learning: dataset, model training, model replacement, SHAP.
-6. Production: cache, indexing, scheduled ingestion, load tests, CI/CD.
+- [docs/master-plan.md](docs/master-plan.md) — current roadmap: milestones
+  M0-M5 (MVP) and E1-E3 (replay companion, highlight/vision, live agent),
+  metric catalog, data-reality notes, and architecture evolution.
+- [docs/PRD-expansion.md](docs/PRD-expansion.md) — product spec (feature
+  definitions, scoring design, policy constraints).
+- [docs/development-plan.md](docs/development-plan.md) — superseded sprint
+  plan, kept for history.
+
+## Roadmap snapshot
+
+1. M0 Foundation hardening: rate limiter, DB-first caching, migrations,
+   moments/metric_scores tables, frontend route split.
+2. M1 New metrics + kill/death heatmap + rule-based win curve.
+3. M2 Role analysis tab + player scorecard (multi-match ingestion).
+4. M3 AI aggregate report with cited evidence.
+5. M4 High-tier benchmark comparison (+ ML win model later).
+6. M5 Production hardening. Then E1-E3 expansions (replay companion,
+   highlight/vision, live event agent).
