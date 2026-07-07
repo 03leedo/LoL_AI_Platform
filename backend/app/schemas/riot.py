@@ -110,12 +110,88 @@ class PlayerAnalysisScoresResponse(BaseModel):
     stability_score: PlayerAnalysisScoreResponse
 
 
+class EvidenceContextSummaryResponse(BaseModel):
+    ally_deaths: int = 0
+    enemy_deaths: int = 0
+    ally_ward_events: int = 0
+    enemy_ward_events: int = 0
+    objective_events: int = 0
+
+
+class EvidenceContextParticipantResponse(BaseModel):
+    participant_id: int
+    team: Literal["blue", "red", "neutral"]
+    champion_name: str | None = None
+    is_player: bool = False
+    x: int | None = None
+    y: int | None = None
+
+
+class ObjectiveStateResponse(BaseModel):
+    blue_dragons: int = 0
+    red_dragons: int = 0
+    blue_heralds: int = 0
+    red_heralds: int = 0
+    blue_barons: int = 0
+    red_barons: int = 0
+    blue_towers: int = 0
+    red_towers: int = 0
+    blue_inhibitors: int = 0
+    red_inhibitors: int = 0
+    blue_voidgrubs: int = 0
+    red_voidgrubs: int = 0
+    blue_atakhans: int = 0
+    red_atakhans: int = 0
+
+
+class EvidenceContextEventResponse(BaseModel):
+    timestamp_ms: int
+    minute: int
+    type: str
+    title: str
+    description: str
+    team: Literal["blue", "red", "neutral"]
+    victim_team: Literal["blue", "red", "neutral"] | None = None
+    ward_type: str | None = None
+    position_x: int | None = None
+    position_y: int | None = None
+    position_source: Literal["event", "participant_frame", "objective_spawn", "unknown"]
+    participant_ids: list[int]
+
+
+class EvidenceContextSnapshotResponse(BaseModel):
+    timestamp_ms: int
+    minute: int
+    offset_seconds: int
+    participants: list[EvidenceContextParticipantResponse]
+    ward_events: list[EvidenceContextEventResponse]
+    objective_state: ObjectiveStateResponse
+
+
+class EvidenceContextInsightResponse(BaseModel):
+    tone: Literal["risk", "positive", "info"]
+    title: str
+    description: str
+
+
+class EvidenceContextResponse(BaseModel):
+    evidence_index: int
+    anchor_timestamp_ms: int
+    window_start_ms: int
+    window_end_ms: int
+    summary: EvidenceContextSummaryResponse
+    insights: list[EvidenceContextInsightResponse]
+    snapshots: list[EvidenceContextSnapshotResponse]
+    events: list[EvidenceContextEventResponse]
+
+
 class PlayerAnalysisEvidenceResponse(BaseModel):
     minute: int
     type: str
     title: str
     description: str
     confidence: Literal["low", "medium", "high"]
+    context: EvidenceContextResponse | None = None
 
 
 class MatchPlayerAnalysisResponse(BaseModel):
@@ -147,7 +223,13 @@ class MatchKeyEventResponse(BaseModel):
     participants: list[KeyEventParticipantResponse]
 
 
+class MatchReviewAssetsResponse(BaseModel):
+    data_dragon_version: str | None = None
+    map_id: int = 11
+
+
 class MatchReviewResponse(BaseModel):
     timeline: MatchTimelineAnalysisResponse
     analysis: MatchPlayerAnalysisResponse
     key_events: list[MatchKeyEventResponse]
+    assets: MatchReviewAssetsResponse
