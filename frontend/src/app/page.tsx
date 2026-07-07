@@ -1,19 +1,9 @@
 "use client";
 
-import {
-  Activity,
-  BarChart3,
-  Database,
-  ListChecks,
-  Loader2,
-  Search,
-  ShieldCheck,
-  Swords
-} from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useState } from "react";
+import { BarChart3, ChevronRight, ListChecks, Loader2, Search, Swords } from "lucide-react";
+import { FormEvent, ReactNode, useState } from "react";
 
 import {
-  getHealth,
   getMatchReview,
   getSummonerMatchHistory,
   MatchPlayerAnalysisResponse,
@@ -22,17 +12,14 @@ import {
   PlayerAnalysisScore,
   searchSummoner,
   SummonerLookupResponse,
-  SystemHealth,
   TimelineFrameFeature
 } from "@/lib/api";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
-const RECENT_MATCH_COUNT = 5;
+const RECENT_MATCH_COUNT = 8;
 
 export default function Home() {
-  const [health, setHealth] = useState<SystemHealth | null>(null);
-  const [healthError, setHealthError] = useState(false);
   const [gameName, setGameName] = useState("");
   const [tagLine, setTagLine] = useState("");
   const [lookupState, setLookupState] = useState<LoadState>("idle");
@@ -42,23 +29,10 @@ export default function Home() {
   const [matchHistory, setMatchHistory] = useState<MatchSummary[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState("");
   const [matchError, setMatchError] = useState("");
-  const [timelineState, setTimelineState] = useState<LoadState>("idle");
+  const [reviewState, setReviewState] = useState<LoadState>("idle");
   const [timeline, setTimeline] = useState<MatchTimelineAnalysisResponse | null>(null);
-  const [timelineError, setTimelineError] = useState("");
-  const [playerAnalysisState, setPlayerAnalysisState] = useState<LoadState>("idle");
   const [playerAnalysis, setPlayerAnalysis] = useState<MatchPlayerAnalysisResponse | null>(null);
-  const [playerAnalysisError, setPlayerAnalysisError] = useState("");
-
-  useEffect(() => {
-    getHealth()
-      .then((data) => {
-        setHealth(data);
-        setHealthError(false);
-      })
-      .catch(() => {
-        setHealthError(true);
-      });
-  }, []);
+  const [reviewError, setReviewError] = useState("");
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,7 +53,7 @@ export default function Home() {
       setLookup(data);
       setLookupState("success");
     } catch (err) {
-      setLookupError(err instanceof Error ? err.message : "Lookup failed");
+      setLookupError(err instanceof Error ? err.message : "소환사 검색에 실패했습니다.");
       setLookupState("error");
       return;
     }
@@ -92,10 +66,9 @@ export default function Home() {
         count: RECENT_MATCH_COUNT
       });
       setMatchHistory(history.matches);
-      setSelectedMatchId("");
       setMatchState("success");
     } catch (err) {
-      setMatchError(err instanceof Error ? err.message : "Match history lookup failed");
+      setMatchError(err instanceof Error ? err.message : "최근 전적을 불러오지 못했습니다.");
       setMatchState("error");
     }
   }
@@ -106,10 +79,8 @@ export default function Home() {
     }
 
     setSelectedMatchId(matchId);
-    setTimelineState("loading");
-    setPlayerAnalysisState("loading");
-    setTimelineError("");
-    setPlayerAnalysisError("");
+    setReviewState("loading");
+    setReviewError("");
     setTimeline(null);
     setPlayerAnalysis(null);
 
@@ -120,14 +91,10 @@ export default function Home() {
       });
       setTimeline(review.timeline);
       setPlayerAnalysis(review.analysis);
-      setTimelineState("success");
-      setPlayerAnalysisState("success");
+      setReviewState("success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Match analysis failed";
-      setTimelineError(message);
-      setPlayerAnalysisError(message);
-      setTimelineState("error");
-      setPlayerAnalysisState("error");
+      setReviewError(err instanceof Error ? err.message : "경기 분석에 실패했습니다.");
+      setReviewState("error");
     }
   }
 
@@ -136,63 +103,49 @@ export default function Home() {
     setMatchHistory([]);
     setSelectedMatchId("");
     setMatchError("");
-    setTimelineState("idle");
+    setReviewState("idle");
     setTimeline(null);
-    setTimelineError("");
-    setPlayerAnalysisState("idle");
     setPlayerAnalysis(null);
-    setPlayerAnalysisError("");
+    setReviewError("");
   }
 
-  const apiStatus = healthError ? "offline" : health?.status ?? "checking";
-  const dbStatus = healthError ? "unknown" : health?.database ?? "checking";
-  const riotStatus = healthError ? "unknown" : health?.riot_api ?? "checking";
   const latestFrame = timeline?.frames[timeline.frames.length - 1];
 
   return (
-    <main className="workspace">
-      <header className="topbar">
-        <div>
+    <main className="app-shell">
+      <section className="search-hero">
+        <div className="hero-copy">
           <p className="eyebrow">LoL AI Platform</p>
-          <h1>Match intelligence workspace</h1>
+          <h1>소환사 전적 분석</h1>
+          <p>최근 경기 기록을 불러오고, 선택한 판의 흐름과 손해 포인트를 바로 복기합니다.</p>
         </div>
-        <div className={`system-pill ${apiStatus === "ok" ? "is-ok" : ""}`}>
-          <Activity size={18} aria-hidden="true" />
-          <span>API {apiStatus}</span>
-        </div>
-      </header>
 
-      <section className="control-grid">
-        <form className="lookup-panel" onSubmit={onSubmit}>
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Riot ID</p>
-              <h2>Summoner lookup</h2>
-            </div>
-            <ShieldCheck size={22} aria-hidden="true" />
+        <form className="summoner-search" onSubmit={onSubmit}>
+          <div className="search-fields">
+            <label htmlFor="gameName">Riot ID</label>
+            <input
+              id="gameName"
+              name="gameName"
+              value={gameName}
+              onChange={(event) => setGameName(event.target.value)}
+              placeholder="Hide on bush"
+              autoComplete="off"
+              required
+            />
           </div>
 
-          <label htmlFor="gameName">Game name</label>
-          <input
-            id="gameName"
-            name="gameName"
-            value={gameName}
-            onChange={(event) => setGameName(event.target.value)}
-            placeholder="Hide on bush"
-            autoComplete="off"
-            required
-          />
-
-          <label htmlFor="tagLine">Tag line</label>
-          <input
-            id="tagLine"
-            name="tagLine"
-            value={tagLine}
-            onChange={(event) => setTagLine(event.target.value)}
-            placeholder="KR1"
-            autoComplete="off"
-            required
-          />
+          <div className="search-fields tag-field">
+            <label htmlFor="tagLine">Tag</label>
+            <input
+              id="tagLine"
+              name="tagLine"
+              value={tagLine}
+              onChange={(event) => setTagLine(event.target.value)}
+              placeholder="KR1"
+              autoComplete="off"
+              required
+            />
+          </div>
 
           <button type="submit" disabled={lookupState === "loading"}>
             {lookupState === "loading" ? (
@@ -200,49 +153,39 @@ export default function Home() {
             ) : (
               <Search size={18} aria-hidden="true" />
             )}
-            <span>Search summoner</span>
+            <span>검색</span>
           </button>
         </form>
 
-        <section className="status-panel" aria-label="System status">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Local stack</p>
-              <h2>Service state</h2>
-            </div>
-            <Database size={22} aria-hidden="true" />
-          </div>
+        {lookupState === "error" && <p className="error-copy hero-error">{lookupError}</p>}
+      </section>
 
-          <div className="metric-list">
-            <StatusRow label="Backend" value={apiStatus} tone={apiStatus === "ok" ? "good" : "warn"} />
-            <StatusRow label="Database" value={dbStatus} tone={dbStatus === "ok" ? "good" : "warn"} />
-            <StatusRow
-              label="Riot key"
-              value={riotStatus}
-              tone={riotStatus === "configured" ? "good" : "warn"}
-            />
+      {lookupState === "success" && lookup && (
+        <section className="summoner-strip">
+          <div>
+            <span className="summoner-avatar">{lookup.account.game_name.slice(0, 1).toUpperCase()}</span>
           </div>
-
-          <div className="lane-strip" aria-hidden="true">
-            <span className="lane lane-blue" />
-            <span className="lane lane-rust" />
-            <span className="lane lane-green" />
+          <div className="summoner-info">
+            <p>{lookup.account.game_name}#{lookup.account.tag_line}</p>
+            <span>Level {lookup.summoner.summoner_level ?? "-"} · {lookup.summoner.platform_routing.toUpperCase()}</span>
           </div>
         </section>
+      )}
 
-        <section className="match-panel" aria-live="polite">
-          <div className="panel-heading">
+      <section className="match-layout">
+        <section className="history-panel">
+          <div className="section-heading">
             <div>
-              <p className="eyebrow">Match-V5</p>
-              <h2>Recent matches</h2>
+              <p className="eyebrow">Match history</p>
+              <h2>최근 전적</h2>
             </div>
             <Swords size={22} aria-hidden="true" />
           </div>
 
-          {matchState === "idle" && <EmptyResult icon="search" label="No matches loaded" />}
-          {matchState === "loading" && <p className="state-copy">Loading match history...</p>}
+          {matchState === "idle" && <EmptyState label="소환사를 검색하면 최근 전적이 여기에 표시됩니다." />}
+          {matchState === "loading" && <LoadingState label="최근 전적을 불러오는 중입니다." />}
           {matchState === "error" && <p className="error-copy">{matchError}</p>}
-          {matchState === "success" && matchHistory.length === 0 && <EmptyResult icon="search" label="No matches found" />}
+          {matchState === "success" && matchHistory.length === 0 && <EmptyState label="최근 경기 기록을 찾지 못했습니다." />}
           {matchState === "success" && matchHistory.length > 0 && (
             <div className="match-list">
               {matchHistory.map((match) => (
@@ -250,7 +193,7 @@ export default function Home() {
                   key={match.match_id}
                   match={match}
                   isSelected={selectedMatchId === match.match_id}
-                  isLoading={timelineState === "loading" && selectedMatchId === match.match_id}
+                  isLoading={reviewState === "loading" && selectedMatchId === match.match_id}
                   onReview={() => onReviewMatch(match.match_id)}
                 />
               ))}
@@ -258,96 +201,50 @@ export default function Home() {
           )}
         </section>
 
-        <section className="result-panel" aria-live="polite">
-          <div className="panel-heading">
+        <aside className="review-panel">
+          <div className="section-heading">
             <div>
-              <p className="eyebrow">Profile</p>
-              <h2>Lookup result</h2>
-            </div>
-          </div>
-
-          {lookupState === "idle" && <EmptyResult icon="search" label="No summoner loaded" />}
-          {lookupState === "loading" && <p className="state-copy">Loading Riot profile data...</p>}
-          {lookupState === "error" && <p className="error-copy">{lookupError}</p>}
-          {lookupState === "success" && lookup && (
-            <div className="result-grid">
-              <ResultItem label="Riot ID" value={`${lookup.account.game_name}#${lookup.account.tag_line}`} />
-              <ResultItem label="Level" value={lookup.summoner.summoner_level?.toString() ?? "-"} />
-              <ResultItem label="Platform" value={lookup.summoner.platform_routing.toUpperCase()} />
-              <ResultItem label="PUUID" value={lookup.account.puuid} compact />
-            </div>
-          )}
-        </section>
-
-        <section className="analysis-panel" aria-live="polite">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Timeline analytics</p>
-              <h2>Gold and objective flow</h2>
-            </div>
-            <BarChart3 size={22} aria-hidden="true" />
-          </div>
-
-          {timelineState === "idle" && <EmptyResult icon="chart" label="No timeline loaded" />}
-          {timelineState === "loading" && <p className="state-copy">Analyzing match timeline...</p>}
-          {timelineState === "error" && <p className="error-copy">{timelineError}</p>}
-          {timelineState === "success" && timeline && latestFrame && (
-            <div className="analysis-stack">
-              <div className="analysis-grid">
-                <ResultItem label="Frames" value={timeline.frame_count.toString()} />
-                <ResultItem label="Gold diff" value={formatDiff(latestFrame.gold_diff)} />
-                <ResultItem label="XP diff" value={formatDiff(latestFrame.xp_diff)} />
-                <ResultItem label="CS diff" value={formatDiff(latestFrame.cs_diff)} />
-                <ResultItem
-                  label="Dragons"
-                  value={`${latestFrame.blue_dragon_kills} - ${latestFrame.red_dragon_kills}`}
-                />
-                <ResultItem
-                  label="Towers"
-                  value={`${latestFrame.blue_tower_kills} - ${latestFrame.red_tower_kills}`}
-                />
-              </div>
-              <TimelineChart frames={timeline.frames} />
-            </div>
-          )}
-        </section>
-
-        <section className="player-analysis-panel" aria-live="polite">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Player analysis</p>
-              <h2>Risk and conversion review</h2>
+              <p className="eyebrow">Review</p>
+              <h2>경기 분석</h2>
             </div>
             <ListChecks size={22} aria-hidden="true" />
           </div>
 
-          {playerAnalysisState === "idle" && <EmptyResult icon="chart" label="No player analysis loaded" />}
-          {playerAnalysisState === "loading" && <p className="state-copy">Reviewing player decisions...</p>}
-          {playerAnalysisState === "error" && <p className="error-copy">{playerAnalysisError}</p>}
-          {playerAnalysisState === "success" && playerAnalysis && (
-            <div className="player-analysis-stack">
-              <div className="player-summary">
-                <ResultItem label="Champion" value={playerAnalysis.player.champion ?? "-"} />
-                <ResultItem label="Role" value={formatRole(playerAnalysis.player.role)} />
-                <ResultItem label="Side" value={playerAnalysis.player.team} />
-                <ResultItem label="Result" value={playerAnalysis.player.win === null ? "-" : playerAnalysis.player.win ? "Win" : "Loss"} />
+          {reviewState === "idle" && <EmptyState label="전적 카드에서 자세히 보기를 누르면 분석이 열립니다." />}
+          {reviewState === "loading" && <LoadingState label="경기 흐름과 손해 포인트를 계산하는 중입니다." />}
+          {reviewState === "error" && <p className="error-copy">{reviewError}</p>}
+          {reviewState === "success" && playerAnalysis && timeline && (
+            <div className="review-stack">
+              <div className="review-summary">
+                <div>
+                  <span className={playerAnalysis.player.win ? "result-badge win" : "result-badge loss"}>
+                    {playerAnalysis.player.win ? "Win" : "Loss"}
+                  </span>
+                  <h3>{playerAnalysis.player.champion ?? "Unknown champion"}</h3>
+                  <p>{formatRole(playerAnalysis.player.role)} · {playerAnalysis.player.team}</p>
+                </div>
               </div>
 
-              <div className="score-sections">
-                <ScoreBlock title="Overall risk">
-                  <ScoreCard label="Death Cost" score={playerAnalysis.scores.death_cost_index} />
-                  <ScoreCard label="Throw Index" score={playerAnalysis.scores.throw_index} />
-                  <ScoreCard label="Stability" score={playerAnalysis.scores.stability_score} />
-                </ScoreBlock>
-
-                <ScoreBlock title="Operation conversion">
-                  <ScoreCard label="Objective Setup" score={playerAnalysis.scores.objective_setup_score} />
-                  <ScoreCard label="Lead Conversion" score={playerAnalysis.scores.lead_conversion_score} />
-                </ScoreBlock>
+              <div className="score-grid">
+                <ScoreCard label="Death Cost" score={playerAnalysis.scores.death_cost_index} />
+                <ScoreCard label="Throw Index" score={playerAnalysis.scores.throw_index} />
+                <ScoreCard label="Stability" score={playerAnalysis.scores.stability_score} />
+                <ScoreCard label="Objective" score={playerAnalysis.scores.objective_setup_score} />
+                <ScoreCard label="Lead Conversion" score={playerAnalysis.scores.lead_conversion_score} />
               </div>
+
+              {latestFrame && (
+                <div className="timeline-summary">
+                  <MiniMetric label="Gold" value={formatDiff(latestFrame.gold_diff)} />
+                  <MiniMetric label="XP" value={formatDiff(latestFrame.xp_diff)} />
+                  <MiniMetric label="CS" value={formatDiff(latestFrame.cs_diff)} />
+                </div>
+              )}
+
+              <TimelineChart frames={timeline.frames} />
 
               <div className="evidence-panel">
-                <h3>Key evidence</h3>
+                <h3>주요 근거</h3>
                 <div className="evidence-list">
                   {playerAnalysis.evidence.map((item, index) => (
                     <article className="evidence-item" key={`${item.type}-${item.minute}-${index}`}>
@@ -363,37 +260,9 @@ export default function Home() {
               </div>
             </div>
           )}
-        </section>
+        </aside>
       </section>
     </main>
-  );
-}
-
-function StatusRow({
-  label,
-  value,
-  tone
-}: {
-  label: string;
-  value: string;
-  tone: "good" | "warn";
-}) {
-  return (
-    <div className="status-row">
-      <span>{label}</span>
-      <strong className={tone}>{value}</strong>
-    </div>
-  );
-}
-
-function EmptyResult({ icon, label }: { icon: "chart" | "search"; label: string }) {
-  const Icon = icon === "chart" ? BarChart3 : Search;
-
-  return (
-    <div className="empty-result">
-      <Icon size={28} aria-hidden="true" />
-      <p>{label}</p>
-    </div>
   );
 }
 
@@ -409,76 +278,92 @@ function MatchCard({
   onReview: () => void;
 }) {
   const cs = (match.total_minions_killed ?? 0) + (match.neutral_minions_killed ?? 0);
+  const kda = formatKda(match.kills, match.deaths, match.assists);
+  const championName = match.champion_name ?? "Unknown";
 
   return (
     <article className={isSelected ? "match-card is-selected" : "match-card"}>
-      <div className="match-card-main">
-        <div>
+      <div className="champion-art">
+        {match.champion_name && (
+          <img
+            src={championSplashUrl(match.champion_name)}
+            alt=""
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+          />
+        )}
+      </div>
+
+      <div className="match-content">
+        <div className="match-topline">
           <span className={match.win === null ? "result-badge" : match.win ? "result-badge win" : "result-badge loss"}>
             {match.win === null ? "Result" : match.win ? "Win" : "Loss"}
           </span>
-          <h3>{match.champion_name ?? "Unknown champion"}</h3>
-          <p>{formatRole(match.team_position)}</p>
+          <span>{queueLabel(match.queue_id)}</span>
+          <span>{formatGameTime(match.game_creation)}</span>
         </div>
-        <div className="match-kda">
-          <strong>
-            {match.kills ?? 0} / {match.deaths ?? 0} / {match.assists ?? 0}
-          </strong>
-          <span>{formatDuration(match.game_duration)}</span>
-        </div>
-      </div>
 
-      <div className="match-card-stats">
-        <span>CS {cs}</span>
-        <span>Vision {match.vision_score ?? "-"}</span>
-        <span>{shortMatchId(match.match_id)}</span>
+        <div className="match-mainline">
+          <div>
+            <h3>{championName}</h3>
+            <p>{formatRole(match.team_position)} · {formatDuration(match.game_duration)}</p>
+          </div>
+          <div className="match-kda">
+            <strong>{match.kills ?? 0} / {match.deaths ?? 0} / {match.assists ?? 0}</strong>
+            <span>{kda}</span>
+          </div>
+        </div>
+
+        <div className="match-card-stats">
+          <span>CS {cs}</span>
+          <span>CS/min {formatCsPerMinute(cs, match.game_duration)}</span>
+          <span>Vision {match.vision_score ?? "-"}</span>
+        </div>
       </div>
 
       <button type="button" onClick={onReview} disabled={isLoading}>
-        {isLoading ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <ListChecks size={18} aria-hidden="true" />}
-        <span>Review</span>
+        {isLoading ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
+        <span>자세히 보기</span>
       </button>
     </article>
   );
 }
 
-function ResultItem({
-  label,
-  value,
-  compact = false
-}: {
-  label: string;
-  value: string;
-  compact?: boolean;
-}) {
+function EmptyState({ label }: { label: string }) {
   return (
-    <div className={compact ? "result-item compact" : "result-item"}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="empty-state">
+      <Search size={28} aria-hidden="true" />
+      <p>{label}</p>
     </div>
   );
 }
 
-function ScoreBlock({ title, children }: { title: string; children: ReactNode }) {
+function LoadingState({ label }: { label: string }) {
   return (
-    <section className="score-block">
-      <h3>{title}</h3>
-      <div className="score-list">{children}</div>
-    </section>
+    <div className="loading-state">
+      <Loader2 className="spin" size={24} aria-hidden="true" />
+      <p>{label}</p>
+    </div>
   );
 }
 
 function ScoreCard({ label, score }: { label: string; score: PlayerAnalysisScore }) {
   return (
     <div className={score.direction === "higher_is_worse" ? "score-card is-risk" : "score-card"}>
-      <div>
-        <span>{label}</span>
-        <strong>{score.value === null ? "N/A" : score.value}</strong>
-      </div>
-      <div className="score-meta">
-        <span>{score.direction === "higher_is_worse" ? "Higher is worse" : "Higher is better"}</span>
-        <ConfidencePill confidence={score.confidence} />
-      </div>
+      <span>{label}</span>
+      <strong>{score.value === null ? "N/A" : score.value}</strong>
+      <ConfidencePill confidence={score.confidence} />
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mini-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -493,7 +378,7 @@ function TimelineChart({ frames }: { frames: TimelineFrameFeature[] }) {
   }
 
   const width = 760;
-  const height = 240;
+  const height = 220;
   const padding = 28;
   const chartWidth = width - padding * 2;
   const chartHeight = height - padding * 2;
@@ -512,21 +397,13 @@ function TimelineChart({ frames }: { frames: TimelineFrameFeature[] }) {
     })
     .join(" ");
 
-  const lastFrame = frames[frames.length - 1];
-
   return (
     <div className="timeline-chart">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Gold difference over time">
         <line className="chart-zero" x1={padding} x2={width - padding} y1={zeroY} y2={zeroY} />
         <polyline className="chart-line" points={points} />
-        <circle
-          className="chart-endpoint"
-          cx={padding + (lastFrame.minute / maxMinute) * chartWidth}
-          cy={height - padding - ((lastFrame.gold_diff - minDiff) / range) * chartHeight}
-          r="5"
-        />
         <text x={padding} y={22}>
-          Blue gold diff
+          Gold diff
         </text>
         <text x={width - padding} y={height - 8} textAnchor="end">
           {maxMinute}m
@@ -536,18 +413,44 @@ function TimelineChart({ frames }: { frames: TimelineFrameFeature[] }) {
   );
 }
 
-function formatDiff(value: number) {
-  if (value > 0) {
-    return `+${value.toLocaleString()}`;
-  }
-  return value.toLocaleString();
+function championSplashUrl(championName: string) {
+  const assetName = championAssetName(championName);
+  return `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${assetName}_0.jpg`;
+}
+
+function championAssetName(championName: string) {
+  const overrides: Record<string, string> = {
+    FiddleSticks: "Fiddlesticks"
+  };
+  return overrides[championName] ?? championName.replace(/[^A-Za-z0-9]/g, "");
+}
+
+function queueLabel(queueId: number | null) {
+  const labels: Record<number, string> = {
+    420: "솔로랭크",
+    430: "일반",
+    440: "자유랭크",
+    450: "칼바람",
+    490: "빠른대전"
+  };
+  return queueId ? labels[queueId] ?? `Queue ${queueId}` : "게임";
 }
 
 function formatRole(role: string | null) {
+  const labels: Record<string, string> = {
+    TOP: "탑",
+    JUNGLE: "정글",
+    MIDDLE: "미드",
+    MID: "미드",
+    BOTTOM: "원딜",
+    ADC: "원딜",
+    UTILITY: "서포터",
+    SUPPORT: "서포터"
+  };
   if (!role) {
     return "-";
   }
-  return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+  return labels[role.toUpperCase()] ?? role;
 }
 
 function formatDuration(seconds: number | null) {
@@ -559,7 +462,40 @@ function formatDuration(seconds: number | null) {
   return `${minutes}:${remainder.toString().padStart(2, "0")}`;
 }
 
-function shortMatchId(matchId: string) {
-  const parts = matchId.split("_");
-  return parts.length > 1 ? parts[1] : matchId;
+function formatCsPerMinute(cs: number, seconds: number | null) {
+  if (!seconds) {
+    return "-";
+  }
+  return (cs / (seconds / 60)).toFixed(1);
+}
+
+function formatKda(kills: number | null, deaths: number | null, assists: number | null) {
+  const deathCount = deaths ?? 0;
+  if (deathCount === 0) {
+    return "Perfect";
+  }
+  return `${(((kills ?? 0) + (assists ?? 0)) / deathCount).toFixed(2)} KDA`;
+}
+
+function formatGameTime(timestamp: number | null) {
+  if (!timestamp) {
+    return "-";
+  }
+  const date = new Date(timestamp);
+  const diffMs = Date.now() - date.getTime();
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  if (diffHours < 1) {
+    return "방금 전";
+  }
+  if (diffHours < 24) {
+    return `${diffHours}시간 전`;
+  }
+  return `${Math.floor(diffHours / 24)}일 전`;
+}
+
+function formatDiff(value: number) {
+  if (value > 0) {
+    return `+${value.toLocaleString()}`;
+  }
+  return value.toLocaleString();
 }
