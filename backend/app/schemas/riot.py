@@ -32,6 +32,27 @@ class MatchIdsResponse(BaseModel):
     match_ids: list[str]
 
 
+class MatchSummaryResponse(BaseModel):
+    match_id: str
+    queue_id: int | None = None
+    game_creation: int | None = None
+    game_duration: int | None = None
+    champion_name: str | None = None
+    team_position: str | None = None
+    win: bool | None = None
+    kills: int | None = None
+    deaths: int | None = None
+    assists: int | None = None
+    total_minions_killed: int | None = None
+    neutral_minions_killed: int | None = None
+    vision_score: int | None = None
+
+
+class SummonerMatchHistoryResponse(BaseModel):
+    account: AccountResponse
+    matches: list[MatchSummaryResponse]
+
+
 class TimelineFrameFeatureResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -102,3 +123,8 @@ class MatchPlayerAnalysisResponse(BaseModel):
     player: PlayerAnalysisPlayerResponse
     scores: PlayerAnalysisScoresResponse
     evidence: list[PlayerAnalysisEvidenceResponse]
+
+
+class MatchReviewResponse(BaseModel):
+    timeline: MatchTimelineAnalysisResponse
+    analysis: MatchPlayerAnalysisResponse
