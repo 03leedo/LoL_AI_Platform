@@ -1,9 +1,11 @@
+import asyncio
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
 from app.core.config import get_settings
+from app.services.rate_limiter import SlidingWindowRateLimiter, Sleeper, get_riot_rate_limiter
 
 
 class RiotApiError(Exception):
@@ -14,11 +16,21 @@ class RiotApiError(Exception):
 
 
 class RiotClient:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        limiter: SlidingWindowRateLimiter | None = None,
+        sleeper: Sleeper | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
         settings = get_settings()
         self.api_key = settings.riot_api_key
         self.platform_routing = settings.riot_platform_routing
         self.regional_routing = settings.riot_regional_routing
+        self.max_attempts = max(1, settings.riot_request_max_attempts)
+        self.retry_backoff_seconds = settings.riot_retry_backoff_seconds
+        self._limiter = limiter if limiter is not None else get_riot_rate_limiter()
+        self._sleep: Sleeper = sleeper if sleeper is not None else asyncio.sleep
+        self._transport = transport
 
     async def get_account_by_riot_id(self, game_name: str, tag_line: str) -> dict[str, Any]:
         encoded_game_name = quote(game_name, safe="")
@@ -60,20 +72,56 @@ class RiotClient:
 
         url = f"https://{routing}.api.riotgames.com{path}"
         headers = {"X-Riot-Token": self.api_key}
+        last_error = RiotApiError("Riot API request failed", 0)
 
-        try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
-                response = await client.get(url, headers=headers, params=params)
-        except httpx.HTTPError as exc:
-            raise RiotApiError(f"Riot API request failed: {exc}", 0) from exc
+        for attempt in range(1, self.max_attempts + 1):
+            await self._limiter.acquire()
 
-        if response.status_code >= 400:
-            raise RiotApiError(
-                message=self._error_message(response),
-                status_code=response.status_code,
-            )
+            try:
+                async with httpx.AsyncClient(timeout=12.0, transport=self._transport) as client:
+                    response = await client.get(url, headers=headers, params=params)
+            except httpx.HTTPError as exc:
+                last_error = RiotApiError(f"Riot API request failed: {exc}", 0)
+                if attempt < self.max_attempts:
+                    await self._sleep(self._backoff_seconds(attempt))
+                    continue
+                raise last_error from exc
 
-        return response.json()
+            if response.status_code == 429:
+                last_error = RiotApiError(self._error_message(response), 429)
+                if attempt < self.max_attempts:
+                    await self._sleep(self._retry_after_seconds(response, attempt))
+                    continue
+                raise last_error
+
+            if response.status_code >= 500:
+                last_error = RiotApiError(self._error_message(response), response.status_code)
+                if attempt < self.max_attempts:
+                    await self._sleep(self._backoff_seconds(attempt))
+                    continue
+                raise last_error
+
+            if response.status_code >= 400:
+                raise RiotApiError(
+                    message=self._error_message(response),
+                    status_code=response.status_code,
+                )
+
+            return response.json()
+
+        raise last_error
+
+    def _retry_after_seconds(self, response: httpx.Response, attempt: int) -> float:
+        raw = response.headers.get("Retry-After")
+        if raw is not None:
+            try:
+                return max(0.0, float(raw))
+            except ValueError:
+                pass
+        return self._backoff_seconds(attempt)
+
+    def _backoff_seconds(self, attempt: int) -> float:
+        return min(8.0, self.retry_backoff_seconds * (2 ** (attempt - 1)))
 
     @staticmethod
     def _error_message(response: httpx.Response) -> str:

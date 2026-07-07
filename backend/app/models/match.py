@@ -24,6 +24,23 @@ class RiotMatch(Base):
     )
 
 
+class RiotMatchTimeline(Base):
+    """Full Match-V5 timeline payload; immutable, acts as the fetch cache."""
+
+    __tablename__ = "riot_match_timelines"
+
+    match_id: Mapped[str] = mapped_column(
+        ForeignKey("riot_matches.match_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    raw_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class SummonerMatch(Base):
     __tablename__ = "summoner_matches"
 

@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     riot_platform_routing: str = "kr"
     riot_regional_routing: str = "asia"
 
+    # Riot dev keys allow 20 req/1s and 100 req/120s app-wide; keep headroom.
+    riot_rate_limit_per_second: int = 18
+    riot_rate_limit_per_two_minutes: int = 95
+    riot_request_max_attempts: int = 4
+    riot_retry_backoff_seconds: float = 0.8
+
     llm_feedback_enabled: bool = False
     openai_api_key: str = ""
     openai_model: str = "gpt-5.4-mini"

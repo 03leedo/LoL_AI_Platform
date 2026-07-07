@@ -1,5 +1,9 @@
 from typing import Any
 
+# Bump when any score formula changes; stored scores carry this so raw JSON
+# can be batch-recomputed and stale rows identified (master-plan §2).
+METRIC_VERSION = 1
+
 BLUE_TEAM_ID = 100
 RED_TEAM_ID = 200
 OBJECTIVE_WINDOW_MS = 90_000

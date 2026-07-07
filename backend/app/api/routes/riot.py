@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.repositories.analysis import replace_match_metric_scores, replace_match_moments
 from app.repositories.matches import (
     replace_match_events,
     replace_match_participants,
     replace_timeline_features,
-    upsert_match,
     upsert_player_skill_score,
 )
 from app.repositories.summoners import upsert_summoner
@@ -25,10 +25,11 @@ from app.schemas.riot import (
     SummonerMatchHistoryResponse,
     TimelineFrameFeatureResponse,
 )
-from app.services.custom_metrics import PlayerAnalysisError, analyze_player_match
+from app.services.custom_metrics import METRIC_VERSION, PlayerAnalysisError, analyze_player_match
 from app.services.evidence_contexts import attach_evidence_contexts, build_review_assets
 from app.services.key_events import extract_key_events
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
+from app.services.match_data import get_match_cached, get_timeline_cached
 from app.services.match_summaries import summarize_match_for_player
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
@@ -122,19 +123,16 @@ async def get_match_history(
     try:
         account = await client.get_account_by_riot_id(game_name, tag_line)
         match_ids = await client.get_match_ids(account["puuid"], count=count)
-        matches = [await client.get_match(match_id) for match_id in match_ids]
+        matches = [
+            (await get_match_cached(db, client, match_id, settings.riot_platform_routing))[0]
+            for match_id in match_ids
+        ]
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
     summaries: list[MatchSummaryResponse] = []
     for match_id, match in zip(match_ids, matches, strict=False):
         try:
-            await upsert_match(
-                db=db,
-                match_id=match_id,
-                match=match,
-                platform_routing=settings.riot_platform_routing,
-            )
             await replace_match_participants(db=db, match_id=match_id, match=match)
         except Exception as exc:  # pragma: no cover - listing should survive local DB drift
             await db.rollback()
@@ -159,11 +157,16 @@ async def get_match_history(
 
 
 @router.get("/matches/{match_id}")
-async def get_match_detail(match_id: str) -> dict[str, Any]:
+async def get_match_detail(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    settings = get_settings()
     client = RiotClient()
 
     try:
-        return await client.get_match(match_id)
+        match, _ = await get_match_cached(db, client, match_id, settings.riot_platform_routing)
+        return match
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
@@ -177,18 +180,12 @@ async def get_match_timeline_analysis(
     client = RiotClient()
 
     try:
-        match = await client.get_match(match_id)
-        timeline = await client.get_match_timeline(match_id)
+        match, _ = await get_match_cached(db, client, match_id, settings.riot_platform_routing)
+        timeline, _ = await get_timeline_cached(db, client, match_id)
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
     features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
-    await upsert_match(
-        db=db,
-        match_id=match_id,
-        match=match,
-        platform_routing=settings.riot_platform_routing,
-    )
     await replace_match_participants(db=db, match_id=match_id, match=match)
     await replace_match_events(db=db, match_id=match_id, timeline=timeline)
     saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
@@ -210,8 +207,8 @@ async def get_match_review(
     client = RiotClient()
 
     try:
-        match = await client.get_match(match_id)
-        timeline = await client.get_match_timeline(match_id)
+        match, _ = await get_match_cached(db, client, match_id, settings.riot_platform_routing)
+        timeline, _ = await get_timeline_cached(db, client, match_id)
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
@@ -242,16 +239,12 @@ async def get_match_review(
     assets = build_review_assets(match)
 
     try:
-        await upsert_match(
-            db=db,
-            match_id=match_id,
-            match=match,
-            platform_routing=settings.riot_platform_routing,
-        )
         await replace_match_participants(db=db, match_id=match_id, match=match)
         await replace_match_events(db=db, match_id=match_id, timeline=timeline)
         saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
         await upsert_player_skill_score(db=db, analysis=analysis)
+        await replace_match_metric_scores(db=db, analysis=analysis, metric_version=METRIC_VERSION)
+        await replace_match_moments(db=db, match_id=match_id, puuid=puuid, key_events=key_events)
     except Exception as exc:  # pragma: no cover - review should still return computed analysis
         await db.rollback()
         logger.warning("Match review persistence skipped for %s: %s", match_id, exc)
@@ -279,18 +272,12 @@ async def get_match_player_analysis(
     client = RiotClient()
 
     try:
-        match = await client.get_match(match_id)
-        timeline = await client.get_match_timeline(match_id)
+        match, _ = await get_match_cached(db, client, match_id, settings.riot_platform_routing)
+        timeline, _ = await get_timeline_cached(db, client, match_id)
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
     features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
-    await upsert_match(
-        db=db,
-        match_id=match_id,
-        match=match,
-        platform_routing=settings.riot_platform_routing,
-    )
     await replace_match_participants(db=db, match_id=match_id, match=match)
     await replace_match_events(db=db, match_id=match_id, timeline=timeline)
     await replace_timeline_features(db=db, match_id=match_id, features=features)
@@ -318,4 +305,5 @@ async def get_match_player_analysis(
         logger.warning("LLM feedback skipped for %s: %s", match_id, exc)
 
     await upsert_player_skill_score(db=db, analysis=analysis)
+    await replace_match_metric_scores(db=db, analysis=analysis, metric_version=METRIC_VERSION)
     return MatchPlayerAnalysisResponse(**analysis)
