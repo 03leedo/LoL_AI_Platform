@@ -120,9 +120,32 @@ export type MatchPlayerAnalysisResponse = {
   }>;
 };
 
+export type MatchKeyEventParticipant = {
+  participant_id: number;
+  team: "blue" | "red" | "neutral";
+  champion_name: string | null;
+  is_player: boolean;
+  is_actor: boolean;
+  x: number | null;
+  y: number | null;
+};
+
+export type MatchKeyEvent = {
+  minute: number;
+  timestamp_ms: number;
+  type: string;
+  title: string;
+  description: string;
+  team: "blue" | "red" | "neutral";
+  position_x: number | null;
+  position_y: number | null;
+  participants: MatchKeyEventParticipant[];
+};
+
 export type MatchReviewResponse = {
   timeline: MatchTimelineAnalysisResponse;
   analysis: MatchPlayerAnalysisResponse;
+  key_events: MatchKeyEvent[];
 };
 
 export async function getHealth(): Promise<SystemHealth> {

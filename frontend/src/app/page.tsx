@@ -1,11 +1,12 @@
 "use client";
 
-import { BarChart3, ChevronRight, ListChecks, Loader2, Search, Swords } from "lucide-react";
-import { FormEvent, ReactNode, useState } from "react";
+import { Castle, ChevronRight, Crosshair, Flame, ListChecks, Loader2, Map, Search, Skull, Swords } from "lucide-react";
+import { FormEvent, useState } from "react";
 
 import {
   getMatchReview,
   getSummonerMatchHistory,
+  MatchKeyEvent,
   MatchPlayerAnalysisResponse,
   MatchSummary,
   MatchTimelineAnalysisResponse,
@@ -18,6 +19,7 @@ import {
 type LoadState = "idle" | "loading" | "success" | "error";
 
 const RECENT_MATCH_COUNT = 8;
+const MAP_SIZE = 15000;
 
 export default function Home() {
   const [gameName, setGameName] = useState("");
@@ -32,6 +34,7 @@ export default function Home() {
   const [reviewState, setReviewState] = useState<LoadState>("idle");
   const [timeline, setTimeline] = useState<MatchTimelineAnalysisResponse | null>(null);
   const [playerAnalysis, setPlayerAnalysis] = useState<MatchPlayerAnalysisResponse | null>(null);
+  const [keyEvents, setKeyEvents] = useState<MatchKeyEvent[]>([]);
   const [reviewError, setReviewError] = useState("");
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -83,6 +86,7 @@ export default function Home() {
     setReviewError("");
     setTimeline(null);
     setPlayerAnalysis(null);
+    setKeyEvents([]);
 
     try {
       const review = await getMatchReview({
@@ -91,6 +95,7 @@ export default function Home() {
       });
       setTimeline(review.timeline);
       setPlayerAnalysis(review.analysis);
+      setKeyEvents(review.key_events ?? []);
       setReviewState("success");
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : "경기 분석에 실패했습니다.");
@@ -106,6 +111,7 @@ export default function Home() {
     setReviewState("idle");
     setTimeline(null);
     setPlayerAnalysis(null);
+    setKeyEvents([]);
     setReviewError("");
   }
 
@@ -242,6 +248,8 @@ export default function Home() {
               )}
 
               <TimelineChart frames={timeline.frames} />
+
+              <KeyEventPanel events={keyEvents} />
 
               <div className="evidence-panel">
                 <h3>주요 근거</h3>
@@ -411,6 +419,173 @@ function TimelineChart({ frames }: { frames: TimelineFrameFeature[] }) {
       </svg>
     </div>
   );
+}
+
+function KeyEventPanel({ events }: { events: MatchKeyEvent[] }) {
+  const [selectedKey, setSelectedKey] = useState("");
+
+  if (events.length === 0) {
+    return (
+      <div className="key-events-panel">
+        <div className="key-events-heading">
+          <h3>주요 사건</h3>
+          <Map size={18} aria-hidden="true" />
+        </div>
+        <p className="event-description">표시할 킬/오브젝트 이벤트가 충분하지 않습니다.</p>
+      </div>
+    );
+  }
+
+  const selectedIndex = events.findIndex((event, index) => keyEventId(event, index) === selectedKey);
+  const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
+  const activeKey = keyEventId(events[activeIndex], activeIndex);
+  const selectedEvent = events[activeIndex];
+
+  return (
+    <div className="key-events-panel">
+      <div className="key-events-heading">
+        <div>
+          <h3>주요 사건</h3>
+          <span>킬 로그, 오브젝트, 타워와 당시 미니맵 상태</span>
+        </div>
+        <Map size={18} aria-hidden="true" />
+      </div>
+
+      <EventMiniMap event={selectedEvent} />
+
+      <div className="event-focus-copy">
+        <span className={`event-type-badge ${selectedEvent.type}`}>
+          <EventGlyph type={selectedEvent.type} />
+          {eventTypeLabel(selectedEvent.type)}
+        </span>
+        <strong>{selectedEvent.title}</strong>
+        <p>{selectedEvent.description}</p>
+      </div>
+
+      <div className="event-log">
+        {events.map((event, index) => {
+          const id = keyEventId(event, index);
+          return (
+            <button
+              className={id === activeKey ? "event-log-item is-selected" : "event-log-item"}
+              key={id}
+              onClick={() => setSelectedKey(id)}
+              type="button"
+            >
+              <span className={`event-type-badge ${event.type}`} aria-hidden="true">
+                <EventGlyph type={event.type} />
+              </span>
+              <span className="event-log-copy">
+                <strong>{event.title}</strong>
+                <small>{event.minute}m · {teamLabel(event.team)}</small>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EventMiniMap({ event }: { event: MatchKeyEvent }) {
+  const positionedParticipants = event.participants.filter((participant) => participant.x !== null && participant.y !== null);
+
+  return (
+    <div className={`event-map team-${event.team}`} aria-label={`${event.title} 미니맵 스냅샷`} role="img">
+      <span className="map-base blue" />
+      <span className="map-base red" />
+      <span className="map-river" />
+      <span className="map-lane top" />
+      <span className="map-lane mid" />
+      <span className="map-lane bot" />
+
+      {positionedParticipants.map((participant) => (
+        <span
+          className={[
+            "map-dot",
+            participant.team,
+            participant.is_player ? "is-player" : "",
+            participant.is_actor ? "is-actor" : ""
+          ].join(" ")}
+          key={participant.participant_id}
+          style={{
+            left: `${mapCoord(participant.x)}%`,
+            top: `${100 - mapCoord(participant.y)}%`
+          }}
+          title={`${participant.champion_name ?? `P${participant.participant_id}`} · ${teamLabel(participant.team)}`}
+        >
+          {championInitial(participant.champion_name, participant.participant_id)}
+        </span>
+      ))}
+
+      {event.position_x !== null && event.position_y !== null && (
+        <span
+          className={`event-pin ${event.type}`}
+          style={{
+            left: `${mapCoord(event.position_x)}%`,
+            top: `${100 - mapCoord(event.position_y)}%`
+          }}
+          title={event.title}
+        >
+          <Crosshair size={13} aria-hidden="true" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EventGlyph({ type }: { type: string }) {
+  if (type === "kill") {
+    return <Skull size={15} aria-hidden="true" />;
+  }
+  if (type === "tower" || type === "inhibitor") {
+    return <Castle size={15} aria-hidden="true" />;
+  }
+  if (["dragon", "herald", "baron", "voidgrub", "atakhan"].includes(type)) {
+    return <Flame size={15} aria-hidden="true" />;
+  }
+  return <Crosshair size={15} aria-hidden="true" />;
+}
+
+function keyEventId(event: MatchKeyEvent, index: number) {
+  return `${event.timestamp_ms}-${event.type}-${index}`;
+}
+
+function eventTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    kill: "킬",
+    dragon: "드래곤",
+    herald: "전령",
+    baron: "바론",
+    voidgrub: "유충",
+    atakhan: "아타칸",
+    tower: "타워",
+    inhibitor: "억제기"
+  };
+  return labels[type] ?? "사건";
+}
+
+function teamLabel(team: "blue" | "red" | "neutral") {
+  const labels = {
+    blue: "블루 팀",
+    red: "레드 팀",
+    neutral: "중립"
+  };
+  return labels[team];
+}
+
+function mapCoord(value: number | null) {
+  if (value === null) {
+    return 50;
+  }
+  return Math.max(0, Math.min(100, (value / MAP_SIZE) * 100));
+}
+
+function championInitial(championName: string | null, participantId: number) {
+  if (!championName) {
+    return String(participantId);
+  }
+  return championName.slice(0, 2).toUpperCase();
 }
 
 function championSplashUrl(championName: string) {
