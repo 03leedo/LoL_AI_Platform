@@ -246,6 +246,100 @@ button:disabled {
   margin-top: 4px;
 }
 
+.match-list {
+  display: grid;
+  gap: 12px;
+}
+
+.match-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.match-card.is-selected {
+  border-color: rgba(31, 95, 143, 0.5);
+  box-shadow: 0 0 0 3px rgba(31, 95, 143, 0.09);
+}
+
+.match-card-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.match-card h3 {
+  margin: 8px 0 3px;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.match-card p,
+.match-kda span,
+.match-card-stats span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(102, 112, 133, 0.12);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.result-badge.win {
+  color: var(--blue);
+  background: rgba(31, 95, 143, 0.13);
+}
+
+.result-badge.loss {
+  color: #9c3d2f;
+  background: rgba(156, 61, 47, 0.12);
+}
+
+.match-kda {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  text-align: right;
+}
+
+.match-kda strong {
+  white-space: nowrap;
+}
+
+.match-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.match-card-stats span {
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+}
+
+.match-card button {
+  width: 100%;
+  margin-top: 0;
+}
+
 .status-row,
 .result-item {
   display: flex;

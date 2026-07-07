@@ -14,10 +14,10 @@ import { FormEvent, ReactNode, useEffect, useState } from "react";
 
 import {
   getHealth,
-  getMatchPlayerAnalysis,
-  getMatchTimelineAnalysis,
-  getRecentMatchIds,
+  getMatchReview,
+  getSummonerMatchHistory,
   MatchPlayerAnalysisResponse,
+  MatchSummary,
   MatchTimelineAnalysisResponse,
   PlayerAnalysisScore,
   searchSummoner,
@@ -39,7 +39,7 @@ export default function Home() {
   const [lookup, setLookup] = useState<SummonerLookupResponse | null>(null);
   const [lookupError, setLookupError] = useState("");
   const [matchState, setMatchState] = useState<LoadState>("idle");
-  const [matchIds, setMatchIds] = useState<string[]>([]);
+  const [matchHistory, setMatchHistory] = useState<MatchSummary[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState("");
   const [matchError, setMatchError] = useState("");
   const [timelineState, setTimelineState] = useState<LoadState>("idle");
@@ -86,25 +86,26 @@ export default function Home() {
 
     setMatchState("loading");
     try {
-      const matches = await getRecentMatchIds({
+      const history = await getSummonerMatchHistory({
         gameName: normalizedGameName,
         tagLine: normalizedTagLine,
         count: RECENT_MATCH_COUNT
       });
-      setMatchIds(matches.match_ids);
-      setSelectedMatchId(matches.match_ids[0] ?? "");
+      setMatchHistory(history.matches);
+      setSelectedMatchId("");
       setMatchState("success");
     } catch (err) {
-      setMatchError(err instanceof Error ? err.message : "Recent matches lookup failed");
+      setMatchError(err instanceof Error ? err.message : "Match history lookup failed");
       setMatchState("error");
     }
   }
 
-  async function onAnalyzeTimeline() {
-    if (!selectedMatchId || !lookup) {
+  async function onReviewMatch(matchId: string) {
+    if (!lookup) {
       return;
     }
 
+    setSelectedMatchId(matchId);
     setTimelineState("loading");
     setPlayerAnalysisState("loading");
     setTimelineError("");
@@ -113,15 +114,12 @@ export default function Home() {
     setPlayerAnalysis(null);
 
     try {
-      const [timelineData, playerAnalysisData] = await Promise.all([
-        getMatchTimelineAnalysis(selectedMatchId),
-        getMatchPlayerAnalysis({
-          matchId: selectedMatchId,
-          puuid: lookup.account.puuid
-        })
-      ]);
-      setTimeline(timelineData);
-      setPlayerAnalysis(playerAnalysisData);
+      const review = await getMatchReview({
+        matchId,
+        puuid: lookup.account.puuid
+      });
+      setTimeline(review.timeline);
+      setPlayerAnalysis(review.analysis);
       setTimelineState("success");
       setPlayerAnalysisState("success");
     } catch (err) {
@@ -133,19 +131,9 @@ export default function Home() {
     }
   }
 
-  function onSelectMatch(matchId: string) {
-    setSelectedMatchId(matchId);
-    setTimelineState("idle");
-    setTimeline(null);
-    setTimelineError("");
-    setPlayerAnalysisState("idle");
-    setPlayerAnalysis(null);
-    setPlayerAnalysisError("");
-  }
-
   function resetMatches() {
     setMatchState("idle");
-    setMatchIds([]);
+    setMatchHistory([]);
     setSelectedMatchId("");
     setMatchError("");
     setTimelineState("idle");
@@ -252,37 +240,20 @@ export default function Home() {
           </div>
 
           {matchState === "idle" && <EmptyResult icon="search" label="No matches loaded" />}
-          {matchState === "loading" && <p className="state-copy">Loading recent matches...</p>}
+          {matchState === "loading" && <p className="state-copy">Loading match history...</p>}
           {matchState === "error" && <p className="error-copy">{matchError}</p>}
-          {matchState === "success" && matchIds.length === 0 && (
-            <EmptyResult icon="search" label="No recent matches found" />
-          )}
-          {matchState === "success" && matchIds.length > 0 && (
-            <div className="match-picker">
-              <label htmlFor="matchId">Match ID</label>
-              <select
-                id="matchId"
-                value={selectedMatchId}
-                onChange={(event) => onSelectMatch(event.target.value)}
-              >
-                {matchIds.map((matchId) => (
-                  <option key={matchId} value={matchId}>
-                    {matchId}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={onAnalyzeTimeline}
-                disabled={timelineState === "loading" || !lookup}
-              >
-                {timelineState === "loading" ? (
-                  <Loader2 className="spin" size={18} aria-hidden="true" />
-                ) : (
-                  <BarChart3 size={18} aria-hidden="true" />
-                )}
-                <span>Analyze match</span>
-              </button>
+          {matchState === "success" && matchHistory.length === 0 && <EmptyResult icon="search" label="No matches found" />}
+          {matchState === "success" && matchHistory.length > 0 && (
+            <div className="match-list">
+              {matchHistory.map((match) => (
+                <MatchCard
+                  key={match.match_id}
+                  match={match}
+                  isSelected={selectedMatchId === match.match_id}
+                  isLoading={timelineState === "loading" && selectedMatchId === match.match_id}
+                  onReview={() => onReviewMatch(match.match_id)}
+                />
+              ))}
             </div>
           )}
         </section>
@@ -426,6 +397,51 @@ function EmptyResult({ icon, label }: { icon: "chart" | "search"; label: string 
   );
 }
 
+function MatchCard({
+  match,
+  isSelected,
+  isLoading,
+  onReview
+}: {
+  match: MatchSummary;
+  isSelected: boolean;
+  isLoading: boolean;
+  onReview: () => void;
+}) {
+  const cs = (match.total_minions_killed ?? 0) + (match.neutral_minions_killed ?? 0);
+
+  return (
+    <article className={isSelected ? "match-card is-selected" : "match-card"}>
+      <div className="match-card-main">
+        <div>
+          <span className={match.win === null ? "result-badge" : match.win ? "result-badge win" : "result-badge loss"}>
+            {match.win === null ? "Result" : match.win ? "Win" : "Loss"}
+          </span>
+          <h3>{match.champion_name ?? "Unknown champion"}</h3>
+          <p>{formatRole(match.team_position)}</p>
+        </div>
+        <div className="match-kda">
+          <strong>
+            {match.kills ?? 0} / {match.deaths ?? 0} / {match.assists ?? 0}
+          </strong>
+          <span>{formatDuration(match.game_duration)}</span>
+        </div>
+      </div>
+
+      <div className="match-card-stats">
+        <span>CS {cs}</span>
+        <span>Vision {match.vision_score ?? "-"}</span>
+        <span>{shortMatchId(match.match_id)}</span>
+      </div>
+
+      <button type="button" onClick={onReview} disabled={isLoading}>
+        {isLoading ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <ListChecks size={18} aria-hidden="true" />}
+        <span>Review</span>
+      </button>
+    </article>
+  );
+}
+
 function ResultItem({
   label,
   value,
@@ -532,4 +548,18 @@ function formatRole(role: string | null) {
     return "-";
   }
   return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+}
+
+function formatDuration(seconds: number | null) {
+  if (!seconds) {
+    return "-";
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${remainder.toString().padStart(2, "0")}`;
+}
+
+function shortMatchId(matchId: string) {
+  const parts = matchId.split("_");
+  return parts.length > 1 ? parts[1] : matchId;
 }

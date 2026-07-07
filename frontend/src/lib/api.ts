@@ -31,6 +31,31 @@ export type MatchIdsResponse = {
   match_ids: string[];
 };
 
+export type MatchSummary = {
+  match_id: string;
+  queue_id: number | null;
+  game_creation: number | null;
+  game_duration: number | null;
+  champion_name: string | null;
+  team_position: string | null;
+  win: boolean | null;
+  kills: number | null;
+  deaths: number | null;
+  assists: number | null;
+  total_minions_killed: number | null;
+  neutral_minions_killed: number | null;
+  vision_score: number | null;
+};
+
+export type SummonerMatchHistoryResponse = {
+  account: {
+    puuid: string;
+    game_name: string;
+    tag_line: string;
+  };
+  matches: MatchSummary[];
+};
+
 export type TimelineFrameFeature = {
   match_id: string;
   minute: number;
@@ -95,6 +120,11 @@ export type MatchPlayerAnalysisResponse = {
   }>;
 };
 
+export type MatchReviewResponse = {
+  timeline: MatchTimelineAnalysisResponse;
+  analysis: MatchPlayerAnalysisResponse;
+};
+
 export async function getHealth(): Promise<SystemHealth> {
   const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
     cache: "no-store"
@@ -130,6 +160,29 @@ export async function getRecentMatchIds({
   return response.json();
 }
 
+export async function getSummonerMatchHistory({
+  gameName,
+  tagLine,
+  count = 5
+}: {
+  gameName: string;
+  tagLine: string;
+  count?: number;
+}): Promise<SummonerMatchHistoryResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/match-history?count=${count}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Match history lookup failed"));
+  }
+
+  return response.json();
+}
+
 export async function getMatchTimelineAnalysis(matchId: string): Promise<MatchTimelineAnalysisResponse> {
   const response = await fetch(`${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/timeline`, {
     cache: "no-store"
@@ -137,6 +190,27 @@ export async function getMatchTimelineAnalysis(matchId: string): Promise<MatchTi
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Timeline analysis failed"));
+  }
+
+  return response.json();
+}
+
+export async function getMatchReview({
+  matchId,
+  puuid
+}: {
+  matchId: string;
+  puuid: string;
+}): Promise<MatchReviewResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/review?puuid=${encodeURIComponent(puuid)}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Match review failed"));
   }
 
   return response.json();
