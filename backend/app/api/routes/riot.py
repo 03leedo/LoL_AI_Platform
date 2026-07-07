@@ -1,4 +1,5 @@
 from typing import Any
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,12 +23,14 @@ from app.schemas.riot import (
     MatchTimelineAnalysisResponse,
     SummonerLookupResponse,
     SummonerMatchHistoryResponse,
+    TimelineFrameFeatureResponse,
 )
 from app.services.custom_metrics import PlayerAnalysisError, analyze_player_match
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def riot_error_to_http(exc: RiotApiError) -> HTTPException:
@@ -121,18 +124,26 @@ async def get_match_history(
 
     summaries: list[MatchSummaryResponse] = []
     for match_id, match in zip(match_ids, matches, strict=False):
-        await upsert_match(
-            db=db,
-            match_id=match_id,
-            match=match,
-            platform_routing=settings.riot_platform_routing,
-        )
-        await replace_match_participants(db=db, match_id=match_id, match=match)
+        try:
+            await upsert_match(
+                db=db,
+                match_id=match_id,
+                match=match,
+                platform_routing=settings.riot_platform_routing,
+            )
+            await replace_match_participants(db=db, match_id=match_id, match=match)
+        except Exception as exc:  # pragma: no cover - listing should survive local DB drift
+            await db.rollback()
+            logger.warning("Match history persistence skipped for %s: %s", match_id, exc)
         summary = summarize_match_for_player(match_id=match_id, puuid=account["puuid"], match=match)
         if summary:
             summaries.append(summary)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as exc:  # pragma: no cover - listing can still return Riot summaries
+        await db.rollback()
+        logger.warning("Match history commit skipped: %s", exc)
     return SummonerMatchHistoryResponse(
         account=AccountResponse(
             puuid=account["puuid"],
@@ -201,16 +212,6 @@ async def get_match_review(
         raise riot_error_to_http(exc) from exc
 
     features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
-    await upsert_match(
-        db=db,
-        match_id=match_id,
-        match=match,
-        platform_routing=settings.riot_platform_routing,
-    )
-    await replace_match_participants(db=db, match_id=match_id, match=match)
-    await replace_match_events(db=db, match_id=match_id, timeline=timeline)
-    saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
-
     try:
         analysis = analyze_player_match(
             match_id=match_id,
@@ -222,7 +223,22 @@ async def get_match_review(
     except PlayerAnalysisError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    await upsert_player_skill_score(db=db, analysis=analysis)
+    try:
+        await upsert_match(
+            db=db,
+            match_id=match_id,
+            match=match,
+            platform_routing=settings.riot_platform_routing,
+        )
+        await replace_match_participants(db=db, match_id=match_id, match=match)
+        await replace_match_events(db=db, match_id=match_id, timeline=timeline)
+        saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
+        await upsert_player_skill_score(db=db, analysis=analysis)
+    except Exception as exc:  # pragma: no cover - review should still return computed analysis
+        await db.rollback()
+        logger.warning("Match review persistence skipped for %s: %s", match_id, exc)
+        saved_frames = [TimelineFrameFeatureResponse(**feature) for feature in features]
+
     return MatchReviewResponse(
         timeline=MatchTimelineAnalysisResponse(
             match_id=match_id,
