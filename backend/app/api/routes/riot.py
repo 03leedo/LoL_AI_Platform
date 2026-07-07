@@ -26,6 +26,7 @@ from app.schemas.riot import (
     TimelineFrameFeatureResponse,
 )
 from app.services.custom_metrics import PlayerAnalysisError, analyze_player_match
+from app.services.key_events import extract_key_events
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
@@ -223,6 +224,8 @@ async def get_match_review(
     except PlayerAnalysisError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    key_events = extract_key_events(match=match, timeline=timeline, puuid=puuid)
+
     try:
         await upsert_match(
             db=db,
@@ -246,6 +249,7 @@ async def get_match_review(
             frames=saved_frames,
         ),
         analysis=MatchPlayerAnalysisResponse(**analysis),
+        key_events=key_events,
     )
 
 

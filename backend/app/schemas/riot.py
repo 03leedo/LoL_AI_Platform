@@ -125,6 +125,29 @@ class MatchPlayerAnalysisResponse(BaseModel):
     evidence: list[PlayerAnalysisEvidenceResponse]
 
 
+class KeyEventParticipantResponse(BaseModel):
+    participant_id: int
+    team: Literal["blue", "red", "neutral"]
+    champion_name: str | None = None
+    is_player: bool = False
+    is_actor: bool = False
+    x: int | None = None
+    y: int | None = None
+
+
+class MatchKeyEventResponse(BaseModel):
+    minute: int
+    timestamp_ms: int
+    type: str
+    title: str
+    description: str
+    team: Literal["blue", "red", "neutral"]
+    position_x: int | None = None
+    position_y: int | None = None
+    participants: list[KeyEventParticipantResponse]
+
+
 class MatchReviewResponse(BaseModel):
     timeline: MatchTimelineAnalysisResponse
     analysis: MatchPlayerAnalysisResponse
+    key_events: list[MatchKeyEventResponse]
