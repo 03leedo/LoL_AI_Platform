@@ -324,10 +324,18 @@ function MatchCard({
           </div>
         </div>
 
-        <div className="match-card-stats">
-          <span>CS {cs}</span>
-          <span>CS/min {formatCsPerMinute(cs, match.game_duration)}</span>
-          <span>Vision {match.vision_score ?? "-"}</span>
+        <div className="match-stat-lines">
+          <div className="match-card-stats is-primary">
+            <span><strong>DMG</strong>{formatCompactNumber(match.total_damage_dealt_to_champions)}</span>
+            <span><strong>KP</strong>{formatPercent(match.kill_participation)}</span>
+            <span><strong>Gold</strong>{formatCompactNumber(match.gold_earned)}</span>
+            <span><strong>Taken</strong>{formatCompactNumber(match.total_damage_taken)}</span>
+          </div>
+          <div className="match-card-stats">
+            <span>CS {cs}</span>
+            <span>CS/min {formatCsPerMinute(cs, match.game_duration)}</span>
+            <span>Vision {match.vision_score ?? "-"}</span>
+          </div>
         </div>
       </div>
 
@@ -832,6 +840,24 @@ function formatKda(kills: number | null, deaths: number | null, assists: number 
     return "Perfect";
   }
   return `${(((kills ?? 0) + (assists ?? 0)) / deathCount).toFixed(2)} KDA`;
+}
+
+function formatCompactNumber(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+  if (Math.abs(value) >= 1000) {
+    const rounded = value >= 10_000 ? (value / 1000).toFixed(0) : (value / 1000).toFixed(1);
+    return `${rounded}k`;
+  }
+  return value.toLocaleString();
+}
+
+function formatPercent(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+  return `${value}%`;
 }
 
 function formatGameTime(timestamp: number | null) {

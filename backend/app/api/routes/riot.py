@@ -29,6 +29,7 @@ from app.services.custom_metrics import PlayerAnalysisError, analyze_player_matc
 from app.services.evidence_contexts import attach_evidence_contexts, build_review_assets
 from app.services.key_events import extract_key_events
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
+from app.services.match_summaries import summarize_match_for_player
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
@@ -140,7 +141,7 @@ async def get_match_history(
             logger.warning("Match history persistence skipped for %s: %s", match_id, exc)
         summary = summarize_match_for_player(match_id=match_id, puuid=account["puuid"], match=match)
         if summary:
-            summaries.append(summary)
+            summaries.append(MatchSummaryResponse(**summary))
 
     try:
         await db.commit()
@@ -318,37 +319,3 @@ async def get_match_player_analysis(
 
     await upsert_player_skill_score(db=db, analysis=analysis)
     return MatchPlayerAnalysisResponse(**analysis)
-
-
-def summarize_match_for_player(
-    match_id: str,
-    puuid: str,
-    match: dict[str, Any],
-) -> MatchSummaryResponse | None:
-    participant = next(
-        (
-            item
-            for item in match.get("info", {}).get("participants", [])
-            if item.get("puuid") == puuid
-        ),
-        None,
-    )
-    if participant is None:
-        return None
-
-    info = match.get("info", {})
-    return MatchSummaryResponse(
-        match_id=match_id,
-        queue_id=info.get("queueId"),
-        game_creation=info.get("gameCreation"),
-        game_duration=info.get("gameDuration"),
-        champion_name=participant.get("championName"),
-        team_position=participant.get("teamPosition") or participant.get("individualPosition"),
-        win=participant.get("win"),
-        kills=participant.get("kills"),
-        deaths=participant.get("deaths"),
-        assists=participant.get("assists"),
-        total_minions_killed=participant.get("totalMinionsKilled"),
-        neutral_minions_killed=participant.get("neutralMinionsKilled"),
-        vision_score=participant.get("visionScore"),
-    )

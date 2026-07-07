@@ -235,7 +235,7 @@ button:disabled {
 .match-card {
   display: grid;
   grid-template-columns: 116px minmax(0, 1fr) 118px;
-  min-height: 132px;
+  min-height: 154px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -255,7 +255,7 @@ button:disabled {
 
 .champion-art {
   position: relative;
-  min-height: 132px;
+  min-height: 154px;
   background: linear-gradient(135deg, #1d2735, #3a4657);
 }
 
@@ -275,7 +275,7 @@ button:disabled {
 .match-content {
   display: grid;
   align-content: center;
-  gap: 14px;
+  gap: 12px;
   padding: 14px 16px;
 }
 
@@ -285,6 +285,11 @@ button:disabled {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.match-stat-lines {
+  display: grid;
+  gap: 7px;
 }
 
 .match-topline span:not(.result-badge),
@@ -297,6 +302,21 @@ button:disabled {
   background: white;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.match-card-stats.is-primary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink);
+  border-color: rgba(40, 105, 216, 0.16);
+  background: linear-gradient(180deg, #ffffff, #f1f6ff);
+}
+
+.match-card-stats.is-primary strong {
+  color: var(--blue);
+  font-size: 0.68rem;
+  font-weight: 950;
 }
 
 .result-badge {

@@ -45,6 +45,10 @@ export type MatchSummary = {
   total_minions_killed: number | null;
   neutral_minions_killed: number | null;
   vision_score: number | null;
+  total_damage_dealt_to_champions: number | null;
+  total_damage_taken: number | null;
+  gold_earned: number | null;
+  kill_participation: number | null;
 };
 
 export type SummonerMatchHistoryResponse = {

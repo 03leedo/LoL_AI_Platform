@@ -46,6 +46,10 @@ class MatchSummaryResponse(BaseModel):
     total_minions_killed: int | None = None
     neutral_minions_killed: int | None = None
     vision_score: int | None = None
+    total_damage_dealt_to_champions: int | None = None
+    total_damage_taken: int | None = None
+    gold_earned: int | None = None
+    kill_participation: int | None = None
 
 
 class SummonerMatchHistoryResponse(BaseModel):
