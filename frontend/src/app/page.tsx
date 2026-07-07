@@ -1,18 +1,23 @@
 "use client";
 
-import { Castle, ChevronRight, Crosshair, Flame, ListChecks, Loader2, Map, Search, Skull, Swords } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { Castle, ChevronRight, Crosshair, Eye, Flame, ListChecks, Loader2, Pause, Play, Search, Skull, Swords } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
 
 import {
+  EvidenceContext,
+  EvidenceContextEvent,
+  EvidenceContextSnapshot,
   getMatchReview,
   getSummonerMatchHistory,
-  MatchKeyEvent,
   MatchPlayerAnalysisResponse,
+  MatchReviewAssets,
   MatchSummary,
   MatchTimelineAnalysisResponse,
+  PlayerAnalysisEvidence,
   PlayerAnalysisScore,
   searchSummoner,
   SummonerLookupResponse,
+  TeamSide,
   TimelineFrameFeature
 } from "@/lib/api";
 
@@ -34,7 +39,7 @@ export default function Home() {
   const [reviewState, setReviewState] = useState<LoadState>("idle");
   const [timeline, setTimeline] = useState<MatchTimelineAnalysisResponse | null>(null);
   const [playerAnalysis, setPlayerAnalysis] = useState<MatchPlayerAnalysisResponse | null>(null);
-  const [keyEvents, setKeyEvents] = useState<MatchKeyEvent[]>([]);
+  const [reviewAssets, setReviewAssets] = useState<MatchReviewAssets | null>(null);
   const [reviewError, setReviewError] = useState("");
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -86,7 +91,7 @@ export default function Home() {
     setReviewError("");
     setTimeline(null);
     setPlayerAnalysis(null);
-    setKeyEvents([]);
+    setReviewAssets(null);
 
     try {
       const review = await getMatchReview({
@@ -95,7 +100,7 @@ export default function Home() {
       });
       setTimeline(review.timeline);
       setPlayerAnalysis(review.analysis);
-      setKeyEvents(review.key_events ?? []);
+      setReviewAssets(review.assets);
       setReviewState("success");
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : "경기 분석에 실패했습니다.");
@@ -111,7 +116,7 @@ export default function Home() {
     setReviewState("idle");
     setTimeline(null);
     setPlayerAnalysis(null);
-    setKeyEvents([]);
+    setReviewAssets(null);
     setReviewError("");
   }
 
@@ -249,20 +254,15 @@ export default function Home() {
 
               <TimelineChart frames={timeline.frames} />
 
-              <KeyEventPanel events={keyEvents} />
-
               <div className="evidence-panel">
                 <h3>주요 근거</h3>
                 <div className="evidence-list">
                   {playerAnalysis.evidence.map((item, index) => (
-                    <article className="evidence-item" key={`${item.type}-${item.minute}-${index}`}>
-                      <div>
-                        <span className="evidence-minute">{item.minute}m</span>
-                        <strong>{item.title}</strong>
-                      </div>
-                      <p>{item.description}</p>
-                      <ConfidencePill confidence={item.confidence} />
-                    </article>
+                    <EvidenceItem
+                      assets={reviewAssets}
+                      evidence={item}
+                      key={`${item.type}-${item.minute}-${index}`}
+                    />
                   ))}
                 </div>
               </div>
@@ -421,91 +421,155 @@ function TimelineChart({ frames }: { frames: TimelineFrameFeature[] }) {
   );
 }
 
-function KeyEventPanel({ events }: { events: MatchKeyEvent[] }) {
-  const [selectedKey, setSelectedKey] = useState("");
-
-  if (events.length === 0) {
-    return (
-      <div className="key-events-panel">
-        <div className="key-events-heading">
-          <h3>주요 사건</h3>
-          <Map size={18} aria-hidden="true" />
+function EvidenceItem({
+  assets,
+  evidence
+}: {
+  assets: MatchReviewAssets | null;
+  evidence: PlayerAnalysisEvidence;
+}) {
+  return (
+    <article className="evidence-item">
+      <div className="evidence-header">
+        <div>
+          <span className="evidence-minute">{evidence.minute}m</span>
+          <strong>{evidence.title}</strong>
         </div>
-        <p className="event-description">표시할 킬/오브젝트 이벤트가 충분하지 않습니다.</p>
+        <ConfidencePill confidence={evidence.confidence} />
       </div>
-    );
+      <p>{evidence.description}</p>
+      {evidence.context && <EvidenceContextViewer assets={assets} context={evidence.context} />}
+    </article>
+  );
+}
+
+function EvidenceContextViewer({
+  assets,
+  context
+}: {
+  assets: MatchReviewAssets | null;
+  context: EvidenceContext;
+}) {
+  const anchorIndex = Math.max(
+    0,
+    context.snapshots.findIndex((snapshot) => snapshot.timestamp_ms >= context.anchor_timestamp_ms)
+  );
+  const [frameIndex, setFrameIndex] = useState(anchorIndex);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const frameCount = context.snapshots.length;
+  const activeIndex = Math.min(frameIndex, Math.max(0, frameCount - 1));
+  const activeSnapshot = context.snapshots[activeIndex];
+
+  useEffect(() => {
+    setFrameIndex(anchorIndex);
+    setIsPlaying(false);
+  }, [anchorIndex, context.anchor_timestamp_ms]);
+
+  useEffect(() => {
+    if (!isPlaying || frameCount < 2) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setFrameIndex((current) => (current >= frameCount - 1 ? 0 : current + 1));
+    }, 900);
+
+    return () => window.clearInterval(timer);
+  }, [frameCount, isPlaying]);
+
+  if (!activeSnapshot) {
+    return null;
   }
 
-  const selectedIndex = events.findIndex((event, index) => keyEventId(event, index) === selectedKey);
-  const activeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-  const activeKey = keyEventId(events[activeIndex], activeIndex);
-  const selectedEvent = events[activeIndex];
-
   return (
-    <div className="key-events-panel">
-      <div className="key-events-heading">
-        <div>
-          <h3>주요 사건</h3>
-          <span>킬 로그, 오브젝트, 타워와 당시 미니맵 상태</span>
+    <div className="evidence-context">
+      <div className="context-insights">
+        {context.insights.map((insight, index) => (
+          <div className={`context-insight ${insight.tone}`} key={`${insight.tone}-${index}`}>
+            <strong>{insight.title}</strong>
+            <p>{insight.description}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="context-summary">
+        <MiniMetric label="아군 사망" value={`${context.summary.ally_deaths}`} />
+        <MiniMetric label="적 사망" value={`${context.summary.enemy_deaths}`} />
+        <MiniMetric label="시야 이벤트" value={`${context.summary.ally_ward_events}/${context.summary.enemy_ward_events}`} />
+        <MiniMetric label="오브젝트" value={`${context.summary.objective_events}`} />
+      </div>
+
+      <div className="context-controls">
+        <button
+          aria-label={isPlaying ? "정지" : "재생"}
+          className="icon-button"
+          disabled={frameCount < 2}
+          onClick={() => setIsPlaying((current) => !current)}
+          type="button"
+        >
+          {isPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+        </button>
+        <input
+          aria-label="타임라인 프레임"
+          max={Math.max(0, frameCount - 1)}
+          min={0}
+          onChange={(event) => {
+            setIsPlaying(false);
+            setFrameIndex(Number(event.target.value));
+          }}
+          type="range"
+          value={activeIndex}
+        />
+        <span>{formatOffset(activeSnapshot.offset_seconds)}</span>
+      </div>
+
+      <div className="context-body">
+        <ContextMiniMap
+          assets={assets}
+          context={context}
+          snapshot={activeSnapshot}
+        />
+        <div className="context-side">
+          <ObjectiveStateBoard state={activeSnapshot.objective_state} />
+          <ContextEventLog
+            anchorTimestamp={context.anchor_timestamp_ms}
+            events={context.events}
+            snapshot={activeSnapshot}
+          />
         </div>
-        <Map size={18} aria-hidden="true" />
-      </div>
-
-      <EventMiniMap event={selectedEvent} />
-
-      <div className="event-focus-copy">
-        <span className={`event-type-badge ${selectedEvent.type}`}>
-          <EventGlyph type={selectedEvent.type} />
-          {eventTypeLabel(selectedEvent.type)}
-        </span>
-        <strong>{selectedEvent.title}</strong>
-        <p>{selectedEvent.description}</p>
-      </div>
-
-      <div className="event-log">
-        {events.map((event, index) => {
-          const id = keyEventId(event, index);
-          return (
-            <button
-              className={id === activeKey ? "event-log-item is-selected" : "event-log-item"}
-              key={id}
-              onClick={() => setSelectedKey(id)}
-              type="button"
-            >
-              <span className={`event-type-badge ${event.type}`} aria-hidden="true">
-                <EventGlyph type={event.type} />
-              </span>
-              <span className="event-log-copy">
-                <strong>{event.title}</strong>
-                <small>{event.minute}m · {teamLabel(event.team)}</small>
-              </span>
-            </button>
-          );
-        })}
       </div>
     </div>
   );
 }
 
-function EventMiniMap({ event }: { event: MatchKeyEvent }) {
-  const positionedParticipants = event.participants.filter((participant) => participant.x !== null && participant.y !== null);
+function ContextMiniMap({
+  assets,
+  context,
+  snapshot
+}: {
+  assets: MatchReviewAssets | null;
+  context: EvidenceContext;
+  snapshot: EvidenceContextSnapshot;
+}) {
+  const visibleEvents = context.events.filter(
+    (event) => !event.type.startsWith("ward_") && Math.abs(event.timestamp_ms - snapshot.timestamp_ms) <= 45_000
+  );
 
   return (
-    <div className={`event-map team-${event.team}`} aria-label={`${event.title} 미니맵 스냅샷`} role="img">
-      <span className="map-base blue" />
-      <span className="map-base red" />
-      <span className="map-river" />
-      <span className="map-lane top" />
-      <span className="map-lane mid" />
-      <span className="map-lane bot" />
+    <div
+      aria-label={`${snapshot.minute}분 미니맵 스냅샷`}
+      className="context-map"
+      role="img"
+      style={{ backgroundImage: `url(${mapImageUrl(assets?.map_id ?? 11)})` }}
+    >
+      <span className="map-overlay" />
 
-      {positionedParticipants.map((participant) => (
+      {snapshot.participants.map((participant) => (
         <span
           className={[
-            "map-dot",
+            "champion-marker",
             participant.team,
-            participant.is_player ? "is-player" : "",
-            participant.is_actor ? "is-actor" : ""
+            participant.is_player ? "is-player" : ""
           ].join(" ")}
           key={participant.participant_id}
           style={{
@@ -514,22 +578,121 @@ function EventMiniMap({ event }: { event: MatchKeyEvent }) {
           }}
           title={`${participant.champion_name ?? `P${participant.participant_id}`} · ${teamLabel(participant.team)}`}
         >
-          {championInitial(participant.champion_name, participant.participant_id)}
+          <span>{championInitial(participant.champion_name, participant.participant_id)}</span>
+          {assets?.data_dragon_version && participant.champion_name && (
+            <img
+              alt=""
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+              }}
+              src={championIconUrl(participant.champion_name, assets.data_dragon_version)}
+            />
+          )}
         </span>
       ))}
 
-      {event.position_x !== null && event.position_y !== null && (
-        <span
-          className={`event-pin ${event.type}`}
-          style={{
-            left: `${mapCoord(event.position_x)}%`,
-            top: `${100 - mapCoord(event.position_y)}%`
-          }}
-          title={event.title}
-        >
-          <Crosshair size={13} aria-hidden="true" />
-        </span>
-      )}
+      {snapshot.ward_events.map((event, index) => (
+        event.position_x !== null && event.position_y !== null && (
+          <span
+            className={`ward-marker ${event.team} ${event.type}`}
+            key={`${event.timestamp_ms}-${event.type}-${index}`}
+            style={{
+              left: `${mapCoord(event.position_x)}%`,
+              top: `${100 - mapCoord(event.position_y)}%`
+            }}
+            title={`${event.title} · ${teamLabel(event.team)}`}
+          >
+            <Eye size={11} aria-hidden="true" />
+          </span>
+        )
+      ))}
+
+      {visibleEvents.map((event, index) => (
+        event.position_x !== null && event.position_y !== null && (
+          <span
+            className={`event-pin ${event.type}`}
+            key={`${event.timestamp_ms}-${event.type}-${index}`}
+            style={{
+              left: `${mapCoord(event.position_x)}%`,
+              top: `${100 - mapCoord(event.position_y)}%`
+            }}
+            title={event.title}
+          >
+            <EventGlyph type={event.type} />
+          </span>
+        )
+      ))}
+    </div>
+  );
+}
+
+function ObjectiveStateBoard({ state }: { state: EvidenceContextSnapshot["objective_state"] }) {
+  return (
+    <div className="objective-state">
+      <strong>오브젝트 상태</strong>
+      <div className="objective-row">
+        <span>블루</span>
+        <ObjectivePill label="용" value={state.blue_dragons} />
+        <ObjectivePill label="전" value={state.blue_heralds} />
+        <ObjectivePill label="바" value={state.blue_barons} />
+        <ObjectivePill label="타" value={state.blue_towers} />
+        <ObjectivePill label="억" value={state.blue_inhibitors} />
+        <ObjectivePill label="유" value={state.blue_voidgrubs} />
+        <ObjectivePill label="아" value={state.blue_atakhans} />
+      </div>
+      <div className="objective-row red">
+        <span>레드</span>
+        <ObjectivePill label="용" value={state.red_dragons} />
+        <ObjectivePill label="전" value={state.red_heralds} />
+        <ObjectivePill label="바" value={state.red_barons} />
+        <ObjectivePill label="타" value={state.red_towers} />
+        <ObjectivePill label="억" value={state.red_inhibitors} />
+        <ObjectivePill label="유" value={state.red_voidgrubs} />
+        <ObjectivePill label="아" value={state.red_atakhans} />
+      </div>
+    </div>
+  );
+}
+
+function ObjectivePill({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="objective-pill">
+      {label} {value}
+    </span>
+  );
+}
+
+function ContextEventLog({
+  anchorTimestamp,
+  events,
+  snapshot
+}: {
+  anchorTimestamp: number;
+  events: EvidenceContextEvent[];
+  snapshot: EvidenceContextSnapshot;
+}) {
+  if (events.length === 0) {
+    return <p className="event-description">이 구간의 세부 로그가 부족합니다.</p>;
+  }
+
+  return (
+    <div className="context-event-log">
+      {events.map((event, index) => {
+        const isActive = Math.abs(event.timestamp_ms - snapshot.timestamp_ms) <= 45_000;
+        return (
+          <div className={isActive ? "context-event is-active" : "context-event"} key={`${event.timestamp_ms}-${event.type}-${index}`}>
+            <span className={`event-type-badge ${event.type}`}>
+              <EventGlyph type={event.type} />
+              {eventTypeLabel(event.type)}
+            </span>
+            <div>
+              <strong>{event.title}</strong>
+              <small>{formatOffset(Math.round((event.timestamp_ms - anchorTimestamp) / 1000))} · {teamLabel(event.team)}</small>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -544,11 +707,10 @@ function EventGlyph({ type }: { type: string }) {
   if (["dragon", "herald", "baron", "voidgrub", "atakhan"].includes(type)) {
     return <Flame size={15} aria-hidden="true" />;
   }
+  if (type.startsWith("ward_")) {
+    return <Eye size={15} aria-hidden="true" />;
+  }
   return <Crosshair size={15} aria-hidden="true" />;
-}
-
-function keyEventId(event: MatchKeyEvent, index: number) {
-  return `${event.timestamp_ms}-${event.type}-${index}`;
 }
 
 function eventTypeLabel(type: string) {
@@ -560,18 +722,27 @@ function eventTypeLabel(type: string) {
     voidgrub: "유충",
     atakhan: "아타칸",
     tower: "타워",
-    inhibitor: "억제기"
+    inhibitor: "억제기",
+    ward_placed: "와드",
+    ward_killed: "와드 제거"
   };
   return labels[type] ?? "사건";
 }
 
-function teamLabel(team: "blue" | "red" | "neutral") {
+function teamLabel(team: TeamSide) {
   const labels = {
     blue: "블루 팀",
     red: "레드 팀",
     neutral: "중립"
   };
   return labels[team];
+}
+
+function formatOffset(seconds: number) {
+  if (seconds === 0) {
+    return "0s";
+  }
+  return `${seconds > 0 ? "+" : ""}${seconds}s`;
 }
 
 function mapCoord(value: number | null) {
@@ -586,6 +757,14 @@ function championInitial(championName: string | null, participantId: number) {
     return String(participantId);
   }
   return championName.slice(0, 2).toUpperCase();
+}
+
+function championIconUrl(championName: string, version: string) {
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${championAssetName(championName)}.png`;
+}
+
+function mapImageUrl(mapId: number) {
+  return `https://ddragon.leagueoflegends.com/cdn/6.8.1/img/map/map${mapId}.png`;
 }
 
 function championSplashUrl(championName: string) {

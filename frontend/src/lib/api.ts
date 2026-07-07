@@ -95,6 +95,90 @@ export type PlayerAnalysisScore = {
   direction: ScoreDirection;
 };
 
+export type TeamSide = "blue" | "red" | "neutral";
+
+export type EvidenceContextSummary = {
+  ally_deaths: number;
+  enemy_deaths: number;
+  ally_ward_events: number;
+  enemy_ward_events: number;
+  objective_events: number;
+};
+
+export type EvidenceContextParticipant = {
+  participant_id: number;
+  team: TeamSide;
+  champion_name: string | null;
+  is_player: boolean;
+  x: number | null;
+  y: number | null;
+};
+
+export type ObjectiveState = {
+  blue_dragons: number;
+  red_dragons: number;
+  blue_heralds: number;
+  red_heralds: number;
+  blue_barons: number;
+  red_barons: number;
+  blue_towers: number;
+  red_towers: number;
+  blue_inhibitors: number;
+  red_inhibitors: number;
+  blue_voidgrubs: number;
+  red_voidgrubs: number;
+  blue_atakhans: number;
+  red_atakhans: number;
+};
+
+export type EvidenceContextEvent = {
+  timestamp_ms: number;
+  minute: number;
+  type: string;
+  title: string;
+  description: string;
+  team: TeamSide;
+  victim_team: TeamSide | null;
+  ward_type: string | null;
+  position_x: number | null;
+  position_y: number | null;
+  position_source: "event" | "participant_frame" | "objective_spawn" | "unknown";
+  participant_ids: number[];
+};
+
+export type EvidenceContextSnapshot = {
+  timestamp_ms: number;
+  minute: number;
+  offset_seconds: number;
+  participants: EvidenceContextParticipant[];
+  ward_events: EvidenceContextEvent[];
+  objective_state: ObjectiveState;
+};
+
+export type EvidenceContext = {
+  evidence_index: number;
+  anchor_timestamp_ms: number;
+  window_start_ms: number;
+  window_end_ms: number;
+  summary: EvidenceContextSummary;
+  insights: Array<{
+    tone: "risk" | "positive" | "info";
+    title: string;
+    description: string;
+  }>;
+  snapshots: EvidenceContextSnapshot[];
+  events: EvidenceContextEvent[];
+};
+
+export type PlayerAnalysisEvidence = {
+  minute: number;
+  type: string;
+  title: string;
+  description: string;
+  confidence: ScoreConfidence;
+  context: EvidenceContext | null;
+};
+
 export type MatchPlayerAnalysisResponse = {
   match_id: string;
   player: {
@@ -111,18 +195,12 @@ export type MatchPlayerAnalysisResponse = {
     lead_conversion_score: PlayerAnalysisScore;
     stability_score: PlayerAnalysisScore;
   };
-  evidence: Array<{
-    minute: number;
-    type: string;
-    title: string;
-    description: string;
-    confidence: ScoreConfidence;
-  }>;
+  evidence: PlayerAnalysisEvidence[];
 };
 
 export type MatchKeyEventParticipant = {
   participant_id: number;
-  team: "blue" | "red" | "neutral";
+  team: TeamSide;
   champion_name: string | null;
   is_player: boolean;
   is_actor: boolean;
@@ -136,16 +214,22 @@ export type MatchKeyEvent = {
   type: string;
   title: string;
   description: string;
-  team: "blue" | "red" | "neutral";
+  team: TeamSide;
   position_x: number | null;
   position_y: number | null;
   participants: MatchKeyEventParticipant[];
+};
+
+export type MatchReviewAssets = {
+  data_dragon_version: string | null;
+  map_id: number;
 };
 
 export type MatchReviewResponse = {
   timeline: MatchTimelineAnalysisResponse;
   analysis: MatchPlayerAnalysisResponse;
   key_events: MatchKeyEvent[];
+  assets: MatchReviewAssets;
 };
 
 export async function getHealth(): Promise<SystemHealth> {
