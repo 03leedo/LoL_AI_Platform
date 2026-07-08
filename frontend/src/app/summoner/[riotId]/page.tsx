@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { MatchCard } from "@/components/MatchCard";
 import { EmptyState, LoadingState } from "@/components/StatusViews";
+import { SummonerHeatmap } from "@/components/SummonerHeatmap";
 import {
   getSummonerMatchHistory,
   MatchSummary,
@@ -38,6 +39,7 @@ export default function SummonerPage() {
   const params = useParams<{ riotId: string }>();
   const riotIdParam = params?.riotId;
   const riotId = typeof riotIdParam === "string" ? riotIdParam : "";
+  const parsedRiotId = parseRiotId(riotId);
 
   const [lookupState, setLookupState] = useState<LoadState>("loading");
   const [lookup, setLookup] = useState<SummonerLookupResponse | null>(null);
@@ -174,6 +176,14 @@ export default function SummonerPage() {
             </div>
           )}
         </section>
+
+        {lookupState === "success" && parsedRiotId && (
+          <SummonerHeatmap
+            key={riotId}
+            gameName={parsedRiotId.gameName}
+            tagLine={parsedRiotId.tagLine}
+          />
+        )}
       </section>
     </main>
   );

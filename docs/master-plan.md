@@ -285,5 +285,14 @@ moments (T1에서 이미 축적) → Highlight Score 상위 구간 선정
 - [x] 프론트 라우트 분리: `/` 검색 · `/summoner/[riotId]` · `/match/[matchId]` (+ components/ 추출)
 - [x] Riot 개발자 포털 앱 URL 인증 완료 — 프로덕션 키 신청은 M5 배포 후 갱신
 
-**다음: M1 — 신규 지표(골드 리텐션·도박사·한타 생존) + 킬/데스 히트맵 + 승률 곡선 v0.**
-여기서부터는 화면에 보이는 것이 매주 늘어나는 구간이다.
+## 10. M1 체크리스트 — 완료 (2026-07-08)
+
+- [x] 습관 지표 4종 (`services/habit_metrics.py`): 골드 리텐션 / 도박사 지수 / 한타 지속력 / 데스 가속도
+      — 리뷰·분석 응답의 scores에 병합, 근사 기반 판정은 confidence 강등 표기, METRIC_VERSION=2
+- [x] challenges 방어적 파서 (`services/challenges.py`)
+- [x] 승률 곡선 v0 (`services/win_probability.py`) — 규칙 기반 로지스틱, 타임라인/리뷰 응답 `win_curve`
+- [x] 킬/데스 히트맵 API (`services/heatmaps.py`, `GET /summoner/{name}/{tag}/heatmap`)
+      — 존 라벨(탑/미드/봇/아군·적 정글) + 데스존 판정(4회↑ & 30%↑), 수집한 이벤트는 DB에 영속화
+- [x] 프론트: 신규 지표 카드 4종(툴팁 포함) · 승률 흐름 차트(내 팀 관점 변환) · 소환사 페이지 히트맵 섹션(온디맨드 분석 버튼)
+
+**다음: M2 — 다중 경기 백그라운드 수집(ingest_jobs) + 공통 6능력치 평가표 + 포지션 적합도/추천 + 랭크 분석 탭.**

@@ -10,6 +10,7 @@ import { EvidencePanel } from "@/components/review/EvidencePanel";
 import { MiniMetric } from "@/components/review/MiniMetric";
 import { ScoreCard } from "@/components/review/ScoreCard";
 import { TimelineChart } from "@/components/review/TimelineChart";
+import { WinCurveChart } from "@/components/review/WinCurveChart";
 import {
   getMatchReview,
   MatchPlayerAnalysisResponse,
@@ -90,6 +91,7 @@ function MatchReviewPageInner() {
   }, [matchId, puuid]);
 
   const latestFrame = timeline?.frames[timeline.frames.length - 1];
+  const winCurve = timeline?.win_curve ?? [];
 
   return (
     <main className="app-shell">
@@ -137,6 +139,34 @@ function MatchReviewPageInner() {
                 <ScoreCard label="Stability" score={playerAnalysis.scores.stability_score} />
                 <ScoreCard label="Objective" score={playerAnalysis.scores.objective_setup_score} />
                 <ScoreCard label="Lead Conversion" score={playerAnalysis.scores.lead_conversion_score} />
+                {playerAnalysis.scores.gold_retention_score && (
+                  <ScoreCard
+                    label="골드 리텐션"
+                    score={playerAnalysis.scores.gold_retention_score}
+                    sublabel="킬 골드를 아이템으로 늦게 전환할수록 높음"
+                  />
+                )}
+                {playerAnalysis.scores.gambler_index && (
+                  <ScoreCard
+                    label="도박사 지수"
+                    score={playerAnalysis.scores.gambler_index}
+                    sublabel="제압골 헌납·고립 데스·적진 침투 성향"
+                  />
+                )}
+                {playerAnalysis.scores.teamfight_persistence_score && (
+                  <ScoreCard
+                    label="한타 지속력"
+                    score={playerAnalysis.scores.teamfight_persistence_score}
+                    sublabel="한타에서 살아남으며 딜을 이어가는 능력"
+                  />
+                )}
+                {playerAnalysis.scores.death_acceleration_index && (
+                  <ScoreCard
+                    label="데스 가속도"
+                    score={playerAnalysis.scores.death_acceleration_index}
+                    sublabel="첫 데스 후 5분 내 연쇄 데스"
+                  />
+                )}
               </div>
 
               {latestFrame && (
@@ -148,6 +178,13 @@ function MatchReviewPageInner() {
               )}
 
               <TimelineChart frames={timeline.frames} />
+
+              {winCurve.length >= 2 && (
+                <div className="win-curve-section">
+                  <h3>승률 흐름</h3>
+                  <WinCurveChart points={winCurve} team={playerAnalysis.player.team} />
+                </div>
+              )}
 
               <EvidencePanel assets={reviewAssets} evidence={playerAnalysis.evidence} />
             </div>

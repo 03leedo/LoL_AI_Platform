@@ -83,10 +83,17 @@ export type TimelineFrameFeature = {
   red_baron_kills: number;
 };
 
+export type WinCurvePoint = {
+  minute: number;
+  timestamp_ms: number;
+  blue_win_prob: number;
+};
+
 export type MatchTimelineAnalysisResponse = {
   match_id: string;
   frame_count: number;
   frames: TimelineFrameFeature[];
+  win_curve?: WinCurvePoint[];
 };
 
 export type ScoreConfidence = "low" | "medium" | "high";
@@ -199,6 +206,10 @@ export type MatchPlayerAnalysisResponse = {
     objective_setup_score: PlayerAnalysisScore;
     lead_conversion_score: PlayerAnalysisScore;
     stability_score: PlayerAnalysisScore;
+    gold_retention_score?: PlayerAnalysisScore | null;
+    gambler_index?: PlayerAnalysisScore | null;
+    teamfight_persistence_score?: PlayerAnalysisScore | null;
+    death_acceleration_index?: PlayerAnalysisScore | null;
   };
   evidence: PlayerAnalysisEvidence[];
 };
@@ -235,6 +246,32 @@ export type MatchReviewResponse = {
   analysis: MatchPlayerAnalysisResponse;
   key_events: MatchKeyEvent[];
   assets: MatchReviewAssets;
+};
+
+export type HeatmapPoint = {
+  match_id: string;
+  minute: number;
+  x: number;
+  y: number;
+  side: "blue" | "red";
+  zone: string;
+};
+
+export type HeatmapZone = {
+  zone: string;
+  count: number;
+  share: number;
+  is_death_zone?: boolean;
+};
+
+export type SummonerHeatmapResponse = {
+  puuid: string;
+  matches_requested: number;
+  matches_analyzed: number;
+  kills: HeatmapPoint[];
+  deaths: HeatmapPoint[];
+  kill_zones: HeatmapZone[];
+  death_zones: HeatmapZone[];
 };
 
 export async function getHealth(): Promise<SystemHealth> {
@@ -290,6 +327,25 @@ export async function getSummonerMatchHistory({
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Match history lookup failed"));
+  }
+
+  return response.json();
+}
+
+export async function getSummonerHeatmap(
+  gameName: string,
+  tagLine: string,
+  count = 10
+): Promise<SummonerHeatmapResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/heatmap?count=${count}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Kill/death heatmap analysis failed"));
   }
 
   return response.json();
