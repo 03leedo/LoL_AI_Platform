@@ -11,13 +11,17 @@ MOMENT_WINDOW_MS = 15_000
 
 ELITE_MOMENT_TYPES = {"dragon", "herald", "baron", "voidgrub", "atakhan"}
 
-# Maps metric keys to the evidence `type` emitted by custom_metrics.
+# Maps metric keys to the evidence `type` emitted by custom_metrics / habit_metrics.
 METRIC_EVIDENCE_TYPES: dict[str, str | None] = {
     "death_cost_index": "death_cost",
     "throw_index": "throw_index",
     "objective_setup_score": "objective_setup",
     "lead_conversion_score": "lead_conversion",
     "stability_score": None,
+    "gold_retention_score": "gold_retention",
+    "gambler_index": "gambler",
+    "teamfight_persistence_score": "teamfight",
+    "death_acceleration_index": "death_chain",
 }
 
 

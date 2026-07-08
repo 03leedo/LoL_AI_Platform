@@ -106,7 +106,7 @@ def _anchor_timestamp(
     kind = evidence.get("type")
     candidates: list[dict[str, Any]] = []
 
-    if kind in {"death_cost", "throw_index"} and player_id is not None:
+    if kind in {"death_cost", "throw_index", "gambler", "death_chain"} and player_id is not None:
         candidates = [
             event
             for event in events

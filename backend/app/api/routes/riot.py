@@ -21,16 +21,20 @@ from app.schemas.riot import (
     MatchReviewResponse,
     MatchSummaryResponse,
     MatchTimelineAnalysisResponse,
+    SummonerHeatmapResponse,
     SummonerLookupResponse,
     SummonerMatchHistoryResponse,
     TimelineFrameFeatureResponse,
 )
 from app.services.custom_metrics import METRIC_VERSION, PlayerAnalysisError, analyze_player_match
 from app.services.evidence_contexts import attach_evidence_contexts, build_review_assets
+from app.services.habit_metrics import merge_habit_metrics
+from app.services.heatmaps import build_summoner_heatmap
 from app.services.key_events import extract_key_events
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
 from app.services.match_data import get_match_cached, get_timeline_cached
 from app.services.match_summaries import summarize_match_for_player
+from app.services.win_probability import build_win_curve
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
@@ -156,6 +160,32 @@ async def get_match_history(
     )
 
 
+@router.get("/summoner/{game_name}/{tag_line}/heatmap", response_model=SummonerHeatmapResponse)
+async def get_summoner_heatmap(
+    game_name: str,
+    tag_line: str,
+    count: int = Query(default=10, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+) -> SummonerHeatmapResponse:
+    settings = get_settings()
+    client = RiotClient()
+
+    try:
+        account = await client.get_account_by_riot_id(game_name, tag_line)
+        match_ids = await client.get_match_ids(account["puuid"], count=count)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    heatmap = await build_summoner_heatmap(
+        db=db,
+        client=client,
+        puuid=account["puuid"],
+        match_ids=match_ids,
+        platform_routing=settings.riot_platform_routing,
+    )
+    return SummonerHeatmapResponse(**heatmap)
+
+
 @router.get("/matches/{match_id}")
 async def get_match_detail(
     match_id: str,
@@ -194,6 +224,7 @@ async def get_match_timeline_analysis(
         match_id=match_id,
         frame_count=len(saved_frames),
         frames=saved_frames,
+        win_curve=build_win_curve(features),
     )
 
 
@@ -224,6 +255,7 @@ async def get_match_review(
     except PlayerAnalysisError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    analysis = merge_habit_metrics(analysis=analysis, match=match, timeline=timeline, features=features)
     analysis = attach_evidence_contexts(
         analysis=analysis,
         match=match,
@@ -255,6 +287,7 @@ async def get_match_review(
             match_id=match_id,
             frame_count=len(saved_frames),
             frames=saved_frames,
+            win_curve=build_win_curve(features),
         ),
         analysis=MatchPlayerAnalysisResponse(**analysis),
         key_events=key_events,
@@ -293,6 +326,7 @@ async def get_match_player_analysis(
     except PlayerAnalysisError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    analysis = merge_habit_metrics(analysis=analysis, match=match, timeline=timeline, features=features)
     analysis = attach_evidence_contexts(
         analysis=analysis,
         match=match,

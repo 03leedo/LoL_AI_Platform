@@ -2,7 +2,9 @@ from typing import Any
 
 # Bump when any score formula changes; stored scores carry this so raw JSON
 # can be batch-recomputed and stale rows identified (master-plan §2).
-METRIC_VERSION = 1
+# v2: habit metrics added (gold retention, gambler, teamfight persistence,
+#     death acceleration).
+METRIC_VERSION = 2
 
 BLUE_TEAM_ID = 100
 RED_TEAM_ID = 200

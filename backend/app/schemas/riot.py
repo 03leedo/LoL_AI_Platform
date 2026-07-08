@@ -90,6 +90,13 @@ class MatchTimelineAnalysisResponse(BaseModel):
     match_id: str
     frame_count: int
     frames: list[TimelineFrameFeatureResponse]
+    win_curve: list["WinCurvePointResponse"] = []
+
+
+class WinCurvePointResponse(BaseModel):
+    minute: int
+    timestamp_ms: int
+    blue_win_prob: float
 
 
 class PlayerAnalysisPlayerResponse(BaseModel):
@@ -112,6 +119,10 @@ class PlayerAnalysisScoresResponse(BaseModel):
     objective_setup_score: PlayerAnalysisScoreResponse
     lead_conversion_score: PlayerAnalysisScoreResponse
     stability_score: PlayerAnalysisScoreResponse
+    gold_retention_score: PlayerAnalysisScoreResponse | None = None
+    gambler_index: PlayerAnalysisScoreResponse | None = None
+    teamfight_persistence_score: PlayerAnalysisScoreResponse | None = None
+    death_acceleration_index: PlayerAnalysisScoreResponse | None = None
 
 
 class EvidenceContextSummaryResponse(BaseModel):
@@ -238,3 +249,29 @@ class MatchReviewResponse(BaseModel):
     analysis: MatchPlayerAnalysisResponse
     key_events: list[MatchKeyEventResponse]
     assets: MatchReviewAssetsResponse
+
+
+class HeatmapPointResponse(BaseModel):
+    match_id: str
+    minute: int
+    x: int
+    y: int
+    side: Literal["blue", "red"]
+    zone: str
+
+
+class HeatmapZoneResponse(BaseModel):
+    zone: str
+    count: int
+    share: float
+    is_death_zone: bool = False
+
+
+class SummonerHeatmapResponse(BaseModel):
+    puuid: str
+    matches_requested: int
+    matches_analyzed: int
+    kills: list[HeatmapPointResponse]
+    deaths: list[HeatmapPointResponse]
+    kill_zones: list[HeatmapZoneResponse]
+    death_zones: list[HeatmapZoneResponse]
