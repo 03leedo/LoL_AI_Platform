@@ -23,6 +23,11 @@ export type SummonerLookupResponse = {
     account_id: string | null;
     profile_icon_id: number | null;
     summoner_level: number | null;
+    solo_tier: string | null;
+    solo_division: string | null;
+    solo_lp: number | null;
+    solo_wins: number | null;
+    solo_losses: number | null;
   };
 };
 
@@ -241,11 +246,22 @@ export type MatchReviewAssets = {
   map_id: number;
 };
 
+export type MatchTurningPoint = {
+  minute: number;
+  prob_before: number;
+  prob_after: number;
+  delta: number;
+  event_type: string | null;
+  title: string | null;
+  description: string | null;
+};
+
 export type MatchReviewResponse = {
   timeline: MatchTimelineAnalysisResponse;
   analysis: MatchPlayerAnalysisResponse;
   key_events: MatchKeyEvent[];
   assets: MatchReviewAssets;
+  turning_points?: MatchTurningPoint[];
 };
 
 export type HeatmapPoint = {
@@ -272,6 +288,50 @@ export type SummonerHeatmapResponse = {
   deaths: HeatmapPoint[];
   kill_zones: HeatmapZone[];
   death_zones: HeatmapZone[];
+};
+
+export type IngestJobState = "queued" | "running" | "done" | "failed";
+
+export type IngestJob = {
+  id: number;
+  puuid: string;
+  job_type: string;
+  requested_count: number;
+  state: IngestJobState;
+  progress: number;
+  error: string | null;
+};
+
+export type RankRole = "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
+
+export type RankAbilityScore = {
+  value: number | null;
+  confidence: ScoreConfidence;
+  direction: string;
+};
+
+export type RankScorecard = {
+  games: number;
+  abilities: Record<string, RankAbilityScore>;
+};
+
+export type RankRoleFit = {
+  role: RankRole;
+  games: number;
+  win_rate: number | null;
+  fit_score: number | null;
+  confidence: ScoreConfidence;
+};
+
+export type RankAnalysisResponse = {
+  puuid: string;
+  window: string;
+  games_analyzed: number;
+  needs_ingest: boolean;
+  scorecard: RankScorecard;
+  roles: RankRoleFit[];
+  recommended: string[];
+  caution: string | null;
 };
 
 export async function getHealth(): Promise<SystemHealth> {
@@ -346,6 +406,57 @@ export async function getSummonerHeatmap(
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Kill/death heatmap analysis failed"));
+  }
+
+  return response.json();
+}
+
+export async function startSummonerIngest(
+  gameName: string,
+  tagLine: string,
+  count = 20
+): Promise<IngestJob> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/ingest?count=${count}&queue=420`,
+    {
+      method: "POST",
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Match ingest request failed"));
+  }
+
+  return response.json();
+}
+
+export async function getIngestJob(id: number): Promise<IngestJob> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/riot/ingest-jobs/${id}`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Ingest job lookup failed"));
+  }
+
+  return response.json();
+}
+
+export async function getRankAnalysis(
+  gameName: string,
+  tagLine: string,
+  window = 20
+): Promise<RankAnalysisResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/rank-analysis?window=${window}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Rank analysis failed"));
   }
 
   return response.json();

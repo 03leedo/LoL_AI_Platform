@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MatchCard } from "@/components/MatchCard";
+import { RankAnalysisPanel } from "@/components/RankAnalysisPanel";
 import { EmptyState, LoadingState } from "@/components/StatusViews";
 import { SummonerHeatmap } from "@/components/SummonerHeatmap";
 import {
@@ -144,6 +145,16 @@ export default function SummonerPage() {
           <div className="summoner-info">
             <p>{lookup.account.game_name}#{lookup.account.tag_line}</p>
             <span>Level {lookup.summoner.summoner_level ?? "-"} · {lookup.summoner.platform_routing.toUpperCase()}</span>
+            <div className="summoner-rank">
+              {(() => {
+                const rankLabel = formatSoloRank(lookup.summoner);
+                return rankLabel ? (
+                  <span className="rank-badge">{rankLabel}</span>
+                ) : (
+                  <span className="rank-badge is-unranked">언랭크</span>
+                );
+              })()}
+            </div>
           </div>
         </section>
       )}
@@ -178,13 +189,43 @@ export default function SummonerPage() {
         </section>
 
         {lookupState === "success" && parsedRiotId && (
-          <SummonerHeatmap
-            key={riotId}
-            gameName={parsedRiotId.gameName}
-            tagLine={parsedRiotId.tagLine}
-          />
+          <>
+            <SummonerHeatmap
+              key={riotId}
+              gameName={parsedRiotId.gameName}
+              tagLine={parsedRiotId.tagLine}
+            />
+            <RankAnalysisPanel
+              key={`rank-${riotId}`}
+              gameName={parsedRiotId.gameName}
+              tagLine={parsedRiotId.tagLine}
+            />
+          </>
         )}
       </section>
     </main>
   );
+}
+
+function formatSoloRank(summoner: SummonerLookupResponse["summoner"]): string | null {
+  if (!summoner.solo_tier) {
+    return null;
+  }
+
+  const parts: string[] = [
+    [summoner.solo_tier, summoner.solo_division].filter(Boolean).join(" ")
+  ];
+
+  if (summoner.solo_lp !== null) {
+    parts.push(`${summoner.solo_lp} LP`);
+  }
+
+  const wins = summoner.solo_wins ?? 0;
+  const losses = summoner.solo_losses ?? 0;
+  const total = wins + losses;
+  if (total > 0) {
+    parts.push(`승률 ${Math.round((wins / total) * 100)}% (${wins}승 ${losses}패)`);
+  }
+
+  return parts.join(" · ");
 }

@@ -10,12 +10,14 @@ import { EvidencePanel } from "@/components/review/EvidencePanel";
 import { MiniMetric } from "@/components/review/MiniMetric";
 import { ScoreCard } from "@/components/review/ScoreCard";
 import { TimelineChart } from "@/components/review/TimelineChart";
+import { TurningPoints } from "@/components/review/TurningPoints";
 import { WinCurveChart } from "@/components/review/WinCurveChart";
 import {
   getMatchReview,
   MatchPlayerAnalysisResponse,
   MatchReviewAssets,
-  MatchTimelineAnalysisResponse
+  MatchTimelineAnalysisResponse,
+  MatchTurningPoint
 } from "@/lib/api";
 import { formatDiff, formatRole } from "@/lib/format";
 import { LoadState } from "@/lib/types";
@@ -47,6 +49,7 @@ function MatchReviewPageInner() {
   const [timeline, setTimeline] = useState<MatchTimelineAnalysisResponse | null>(null);
   const [playerAnalysis, setPlayerAnalysis] = useState<MatchPlayerAnalysisResponse | null>(null);
   const [reviewAssets, setReviewAssets] = useState<MatchReviewAssets | null>(null);
+  const [turningPoints, setTurningPoints] = useState<MatchTurningPoint[]>([]);
   const [reviewError, setReviewError] = useState("");
 
   useEffect(() => {
@@ -55,6 +58,7 @@ function MatchReviewPageInner() {
     setTimeline(null);
     setPlayerAnalysis(null);
     setReviewAssets(null);
+    setTurningPoints([]);
 
     if (!matchId || !puuid) {
       setReviewError("경기 분석에 필요한 정보가 부족합니다. 전적 목록에서 다시 열어주세요.");
@@ -73,6 +77,7 @@ function MatchReviewPageInner() {
         setTimeline(review.timeline);
         setPlayerAnalysis(review.analysis);
         setReviewAssets(review.assets);
+        setTurningPoints(review.turning_points ?? []);
         setReviewState("success");
       } catch (err) {
         if (cancelled) {
@@ -185,6 +190,8 @@ function MatchReviewPageInner() {
                   <WinCurveChart points={winCurve} team={playerAnalysis.player.team} />
                 </div>
               )}
+
+              {turningPoints.length > 0 && <TurningPoints points={turningPoints} />}
 
               <EvidencePanel assets={reviewAssets} evidence={playerAnalysis.evidence} />
             </div>
