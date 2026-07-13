@@ -43,10 +43,27 @@ class RiotClient:
         path = f"/lol/summoner/v4/summoners/by-puuid/{encoded_puuid}"
         return await self._get(self.platform_routing, path)
 
-    async def get_match_ids(self, puuid: str, count: int = 10) -> list[str]:
+    async def get_league_entries_by_puuid(self, puuid: str) -> list[dict[str, Any]]:
+        encoded_puuid = quote(puuid, safe="")
+        path = f"/lol/league/v4/entries/by-puuid/{encoded_puuid}"
+        data = await self._get(self.platform_routing, path)
+        if not isinstance(data, list):
+            raise RiotApiError("Unexpected Riot API response for league entries", 502)
+        return data
+
+    async def get_match_ids(
+        self,
+        puuid: str,
+        count: int = 10,
+        queue: int | None = None,
+        start: int = 0,
+    ) -> list[str]:
         encoded_puuid = quote(puuid, safe="")
         path = f"/lol/match/v5/matches/by-puuid/{encoded_puuid}/ids"
-        data = await self._get(self.regional_routing, path, params={"start": 0, "count": count})
+        params: dict[str, Any] = {"start": start, "count": count}
+        if queue is not None:
+            params["queue"] = queue
+        data = await self._get(self.regional_routing, path, params=params)
         if not isinstance(data, list):
             raise RiotApiError("Unexpected Riot API response for match ids", 502)
         return data

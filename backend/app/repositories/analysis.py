@@ -2,10 +2,11 @@
 
 from typing import Any
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analysis import MetricScore, Moment
+from app.models.match import MatchParticipant, RiotMatch
 
 MOMENT_WINDOW_MS = 15_000
 
@@ -119,4 +120,94 @@ async def replace_match_metric_scores(
         )
     )
     db.add_all(build_metric_scores(analysis=analysis, metric_version=metric_version))
+    await db.commit()
+
+
+async def fetch_player_match_records(
+    db: AsyncSession,
+    puuid: str,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Load a player's recent stored matches as plain dicts for aggregation.
+
+    Reads only the local DB (no Riot calls) — the ingest pipeline is what
+    fills it. Each record: match metadata + participant stats + challenges +
+    per-match metric values keyed by metric_key.
+    """
+    stmt = (
+        select(MatchParticipant, RiotMatch.game_creation, RiotMatch.queue_id)
+        .join(RiotMatch, RiotMatch.match_id == MatchParticipant.match_id)
+        .where(MatchParticipant.puuid == puuid)
+        .order_by(RiotMatch.game_creation.desc().nulls_last())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    records: list[dict[str, Any]] = []
+    by_match: dict[str, dict[str, Any]] = {}
+    for participant, game_creation, queue_id in rows:
+        raw = participant.raw_json or {}
+        challenges = raw.get("challenges")
+        record = {
+            "match_id": participant.match_id,
+            "game_creation": game_creation,
+            "queue_id": queue_id,
+            "role": participant.team_position or participant.individual_position,
+            "win": participant.win,
+            "kills": participant.kills,
+            "deaths": participant.deaths,
+            "assists": participant.assists,
+            "champion_name": participant.champion_name,
+            "challenges": challenges if isinstance(challenges, dict) else {},
+            "scores": {},
+        }
+        records.append(record)
+        by_match[participant.match_id] = record
+
+    if by_match:
+        score_stmt = select(MetricScore).where(
+            MetricScore.puuid == puuid,
+            MetricScore.scope == "match",
+            MetricScore.match_id.in_(list(by_match.keys())),
+        )
+        for score in (await db.execute(score_stmt)).scalars():
+            record = by_match.get(score.match_id)
+            if record is not None:
+                record["scores"][score.metric_key] = score.value
+
+    return records
+
+
+async def replace_aggregate_scores(
+    db: AsyncSession,
+    puuid: str,
+    window: str,
+    rows: list[dict[str, Any]],
+    metric_version: int,
+) -> None:
+    """Replace scope=aggregate rows for (puuid, window) with freshly computed ones."""
+    await db.execute(
+        delete(MetricScore).where(
+            MetricScore.puuid == puuid,
+            MetricScore.scope == "aggregate",
+            MetricScore.window == window,
+        )
+    )
+    db.add_all(
+        MetricScore(
+            puuid=puuid,
+            scope="aggregate",
+            match_id=None,
+            role=row.get("role"),
+            window=window,
+            metric_key=row["metric_key"],
+            value=row.get("value"),
+            confidence=row.get("confidence") or "medium",
+            direction=row.get("direction") or "higher_is_better",
+            evidence=row.get("evidence"),
+            source="api",
+            metric_version=metric_version,
+        )
+        for row in rows
+    )
     await db.commit()

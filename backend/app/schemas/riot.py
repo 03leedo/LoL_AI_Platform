@@ -20,6 +20,11 @@ class SummonerProfileResponse(BaseModel):
     account_id: str | None = None
     profile_icon_id: int | None = None
     summoner_level: int | None = None
+    solo_tier: str | None = None
+    solo_division: str | None = None
+    solo_lp: int | None = None
+    solo_wins: int | None = None
+    solo_losses: int | None = None
 
 
 class SummonerLookupResponse(BaseModel):
@@ -244,11 +249,22 @@ class MatchReviewAssetsResponse(BaseModel):
     map_id: int = 11
 
 
+class TurningPointResponse(BaseModel):
+    minute: int
+    prob_before: float
+    prob_after: float
+    delta: float
+    event_type: str | None = None
+    title: str | None = None
+    description: str | None = None
+
+
 class MatchReviewResponse(BaseModel):
     timeline: MatchTimelineAnalysisResponse
     analysis: MatchPlayerAnalysisResponse
     key_events: list[MatchKeyEventResponse]
     assets: MatchReviewAssetsResponse
+    turning_points: list[TurningPointResponse] = []
 
 
 class HeatmapPointResponse(BaseModel):
@@ -275,3 +291,43 @@ class SummonerHeatmapResponse(BaseModel):
     deaths: list[HeatmapPointResponse]
     kill_zones: list[HeatmapZoneResponse]
     death_zones: list[HeatmapZoneResponse]
+
+
+class IngestJobResponse(BaseModel):
+    id: int
+    puuid: str
+    job_type: str
+    requested_count: int
+    state: str
+    progress: int
+    error: str | None = None
+
+
+class AbilityScoreResponse(BaseModel):
+    value: int | None = None
+    confidence: Literal["low", "medium", "high"] = "low"
+    direction: str = "higher_is_better"
+
+
+class ScorecardResponse(BaseModel):
+    games: int
+    abilities: dict[str, AbilityScoreResponse]
+
+
+class RoleFitResponse(BaseModel):
+    role: str
+    games: int
+    win_rate: float | None = None
+    fit_score: int | None = None
+    confidence: Literal["low", "medium", "high"] = "low"
+
+
+class RankAnalysisResponse(BaseModel):
+    puuid: str
+    window: str
+    games_analyzed: int
+    needs_ingest: bool
+    scorecard: ScorecardResponse
+    roles: list[RoleFitResponse]
+    recommended: list[str]
+    caution: str | None = None

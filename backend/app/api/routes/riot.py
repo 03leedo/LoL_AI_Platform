@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.repositories.analysis import replace_match_metric_scores, replace_match_moments
+from app.models.analysis import IngestJob
+from app.repositories.analysis import (
+    fetch_player_match_records,
+    replace_aggregate_scores,
+    replace_match_metric_scores,
+    replace_match_moments,
+)
 from app.repositories.matches import (
     replace_match_events,
     replace_match_participants,
@@ -16,11 +22,15 @@ from app.repositories.matches import (
 from app.repositories.summoners import upsert_summoner
 from app.schemas.riot import (
     AccountResponse,
+    IngestJobResponse,
     MatchIdsResponse,
     MatchPlayerAnalysisResponse,
     MatchReviewResponse,
     MatchSummaryResponse,
     MatchTimelineAnalysisResponse,
+    RankAnalysisResponse,
+    RoleFitResponse,
+    ScorecardResponse,
     SummonerHeatmapResponse,
     SummonerLookupResponse,
     SummonerMatchHistoryResponse,
@@ -30,7 +40,11 @@ from app.services.custom_metrics import METRIC_VERSION, PlayerAnalysisError, ana
 from app.services.evidence_contexts import attach_evidence_contexts, build_review_assets
 from app.services.habit_metrics import merge_habit_metrics
 from app.services.heatmaps import build_summoner_heatmap
+from app.services.ingest import create_ingest_job, job_to_dict, start_ingest_task
 from app.services.key_events import extract_key_events
+from app.services.role_analyzer import build_role_analysis, role_analysis_to_aggregate_rows
+from app.services.scorecard import build_scorecard, scorecard_to_aggregate_rows
+from app.services.turning_points import detect_turning_points
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
 from app.services.match_data import get_match_cached, get_timeline_cached
 from app.services.match_summaries import summarize_match_for_player
@@ -80,11 +94,18 @@ async def get_summoner(
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
+    try:
+        league_entries = await client.get_league_entries_by_puuid(account["puuid"])
+    except RiotApiError as exc:
+        logger.warning("League lookup skipped for %s: %s", account["puuid"], exc.message)
+        league_entries = None
+
     saved = await upsert_summoner(
         db=db,
         account=account,
         summoner=summoner,
         platform_routing=settings.riot_platform_routing,
+        league_entries=league_entries,
     )
 
     return SummonerLookupResponse(
@@ -186,6 +207,84 @@ async def get_summoner_heatmap(
     return SummonerHeatmapResponse(**heatmap)
 
 
+@router.post("/summoner/{game_name}/{tag_line}/ingest", response_model=IngestJobResponse)
+async def start_summoner_ingest(
+    game_name: str,
+    tag_line: str,
+    count: int = Query(default=20, ge=1, le=30),
+    queue: int = Query(default=420, ge=0, description="Riot queue id filter; 0 disables the filter"),
+    db: AsyncSession = Depends(get_db),
+) -> IngestJobResponse:
+    client = RiotClient()
+
+    try:
+        account = await client.get_account_by_riot_id(game_name, tag_line)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    job = await create_ingest_job(db=db, puuid=account["puuid"], requested_count=count)
+    start_ingest_task(job_id=job.id, puuid=account["puuid"], count=count, queue=queue or None)
+    return IngestJobResponse(**job_to_dict(job))
+
+
+@router.get("/ingest-jobs/{job_id}", response_model=IngestJobResponse)
+async def get_ingest_job(
+    job_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> IngestJobResponse:
+    job = await db.get(IngestJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Ingest job not found")
+    return IngestJobResponse(**job_to_dict(job))
+
+
+@router.get("/summoner/{game_name}/{tag_line}/rank-analysis", response_model=RankAnalysisResponse)
+async def get_rank_analysis(
+    game_name: str,
+    tag_line: str,
+    window: int = Query(default=20, ge=5, le=30),
+    db: AsyncSession = Depends(get_db),
+) -> RankAnalysisResponse:
+    client = RiotClient()
+
+    try:
+        account = await client.get_account_by_riot_id(game_name, tag_line)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    puuid = account["puuid"]
+    records = await fetch_player_match_records(db=db, puuid=puuid, limit=window)
+    scorecard = build_scorecard(records)
+    role_analysis = build_role_analysis(records)
+
+    window_key = f"recent{window}"
+    try:
+        await replace_aggregate_scores(
+            db=db,
+            puuid=puuid,
+            window=window_key,
+            rows=scorecard_to_aggregate_rows(scorecard) + role_analysis_to_aggregate_rows(role_analysis),
+            metric_version=METRIC_VERSION,
+        )
+    except Exception as exc:  # pragma: no cover - analysis should still be returned
+        logger.warning("Aggregate persistence skipped for %s: %s", puuid, exc)
+        try:
+            await db.rollback()
+        except Exception:  # pragma: no cover
+            pass
+
+    return RankAnalysisResponse(
+        puuid=puuid,
+        window=window_key,
+        games_analyzed=len(records),
+        needs_ingest=len(records) < 5,
+        scorecard=ScorecardResponse(**scorecard),
+        roles=[RoleFitResponse(**role) for role in role_analysis["roles"]],
+        recommended=role_analysis["recommended"],
+        caution=role_analysis["caution"],
+    )
+
+
 @router.get("/matches/{match_id}")
 async def get_match_detail(
     match_id: str,
@@ -269,6 +368,12 @@ async def get_match_review(
 
     key_events = extract_key_events(match=match, timeline=timeline, puuid=puuid)
     assets = build_review_assets(match)
+    win_curve = build_win_curve(features)
+    turning_points = detect_turning_points(
+        win_curve=win_curve,
+        key_events=key_events,
+        player_team=analysis["player"]["team"],
+    )
 
     try:
         await replace_match_participants(db=db, match_id=match_id, match=match)
@@ -287,11 +392,12 @@ async def get_match_review(
             match_id=match_id,
             frame_count=len(saved_frames),
             frames=saved_frames,
-            win_curve=build_win_curve(features),
+            win_curve=win_curve,
         ),
         analysis=MatchPlayerAnalysisResponse(**analysis),
         key_events=key_events,
         assets=assets,
+        turning_points=turning_points,
     )
 
 
