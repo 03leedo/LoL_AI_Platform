@@ -16,8 +16,10 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-REQUEST_TIMEOUT_SECONDS = 30.0
-MAX_OUTPUT_TOKENS = 1500
+REQUEST_TIMEOUT_SECONDS = 45.0
+# Thinking-style models (e.g. Gemini 3.5 Flash) spend part of this budget on
+# reasoning before emitting JSON — keep headroom so output is not truncated.
+MAX_OUTPUT_TOKENS = 4000
 
 
 class LlmProviderError(Exception):

@@ -11,7 +11,10 @@ def analyze_match_timeline(
 ) -> list[dict[str, Any]]:
     participant_teams = _participant_teams(match)
     counters = _empty_objective_counters()
-    analyzed_frames: list[dict[str, Any]] = []
+    # Keyed by minute: the final frame lands at game end, which can share a
+    # minute with the previous frame — the later frame wins so features stay
+    # unique on (match_id, minute) and reflect end-of-game state.
+    frames_by_minute: dict[int, dict[str, Any]] = {}
 
     frames = timeline.get("info", {}).get("frames", [])
     for frame in frames:
@@ -19,10 +22,11 @@ def analyze_match_timeline(
         totals = _team_totals(frame.get("participantFrames", {}), participant_teams)
 
         timestamp_ms = int(frame.get("timestamp") or 0)
-        analyzed_frames.append(
+        minute = timestamp_ms // 60000
+        frames_by_minute[minute] = (
             {
                 "match_id": match_id,
-                "minute": timestamp_ms // 60000,
+                "minute": minute,
                 "timestamp_ms": timestamp_ms,
                 "blue_gold": totals[BLUE_TEAM_ID]["gold"],
                 "red_gold": totals[RED_TEAM_ID]["gold"],
@@ -45,7 +49,7 @@ def analyze_match_timeline(
             }
         )
 
-    return analyzed_frames
+    return [frames_by_minute[minute] for minute in sorted(frames_by_minute)]
 
 
 def _participant_teams(match: dict[str, Any]) -> dict[int, int]:
