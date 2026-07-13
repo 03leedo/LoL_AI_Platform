@@ -1,5 +1,10 @@
 # LoL AI Platform — 통합 개발 마스터플랜
 
+> **⚠️ 로드맵 거버넌스 이관 (2026-07-13):** 이후 단계 계획은 [FABLE_EXECUTION_PLAN.md](./FABLE_EXECUTION_PLAN.md)(Phase 0~12)와
+> [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md)(진행 상태)가 관리한다. 도메인 기준은
+> [PRODUCT_ANALYSIS_SPEC.md](./PRODUCT_ANALYSIS_SPEC.md)(v3), 저장소 지도는 [REPOSITORY_AUDIT.md](./REPOSITORY_AUDIT.md).
+> 이 문서는 **완료된 M0~M3 이력과 아키텍처·데이터 현실 체크(§3)·확장 트랙(§7) 레퍼런스**로 유지된다.
+
 > 작성일: 2026-07-07 · 기준 문서: [PRD-expansion.md](./PRD-expansion.md)(확장 기획서)
 >
 > 이 문서는 PRD("무엇을 만들 것인가")와 **현재 코드베이스** 사이에서
