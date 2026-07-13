@@ -334,6 +334,44 @@ export type RankAnalysisResponse = {
   caution: string | null;
 };
 
+export type PlayerReportSeverity = "positive" | "warn" | "critical";
+
+export type PlayerReportPattern = {
+  key: string;
+  severity: PlayerReportSeverity;
+  title: string;
+  description: string;
+  stat: string | null;
+  matches: string[];
+};
+
+export type PlayerReportAutopsy = {
+  matches: number;
+  deaths: number;
+  kills: number;
+  shutdown_deaths: number;
+  shutdown_gold_conceded: number;
+  objective_linked_deaths: number;
+  objective_linked_share: number;
+  avg_first_death_minute: number | null;
+};
+
+export type PlayerReportResponse = {
+  puuid: string;
+  window: string;
+  games_analyzed: number;
+  needs_ingest: boolean;
+  generated_by: "rules" | "llm";
+  cached: boolean;
+  cache_key: string;
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  patterns: PlayerReportPattern[];
+  autopsy: PlayerReportAutopsy | null;
+};
+
 export async function getHealth(): Promise<SystemHealth> {
   const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
     cache: "no-store"
@@ -457,6 +495,26 @@ export async function getRankAnalysis(
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Rank analysis failed"));
+  }
+
+  return response.json();
+}
+
+export async function getPlayerReport(
+  gameName: string,
+  tagLine: string,
+  window = 20,
+  force = false
+): Promise<PlayerReportResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/report?window=${window}&force=${force}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Player report generation failed"));
   }
 
   return response.json();
