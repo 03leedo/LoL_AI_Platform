@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.4-mini"
     openai_base_url: str = "https://api.openai.com/v1"
 
+    # Report generation provider: "openai" (OpenAI-compatible) or "anthropic".
+    # Falls back to the deterministic rule-based report when no key is set.
+    llm_provider: str = "openai"
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-5"
+    anthropic_base_url: str = "https://api.anthropic.com"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

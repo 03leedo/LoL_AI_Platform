@@ -331,3 +331,39 @@ class RankAnalysisResponse(BaseModel):
     roles: list[RoleFitResponse]
     recommended: list[str]
     caution: str | None = None
+
+
+class ReportPatternResponse(BaseModel):
+    key: str
+    severity: Literal["positive", "warn", "critical"]
+    title: str
+    description: str
+    stat: str | None = None
+    matches: list[str] = []
+
+
+class DeathAutopsyResponse(BaseModel):
+    matches: int = 0
+    deaths: int = 0
+    kills: int = 0
+    shutdown_deaths: int = 0
+    shutdown_gold_conceded: int = 0
+    objective_linked_deaths: int = 0
+    objective_linked_share: float = 0.0
+    avg_first_death_minute: float | None = None
+
+
+class PlayerReportResponse(BaseModel):
+    puuid: str
+    window: str
+    games_analyzed: int
+    needs_ingest: bool
+    generated_by: Literal["rules", "llm"]
+    cached: bool = False
+    cache_key: str = ""
+    summary: str
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    recommendations: list[str] = []
+    patterns: list[ReportPatternResponse] = []
+    autopsy: DeathAutopsyResponse | None = None

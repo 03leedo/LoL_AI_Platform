@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.analysis import MetricScore, Moment
-from app.models.match import MatchParticipant, RiotMatch
+from app.models.analysis import AnalysisReport, MetricScore, Moment
+from app.models.match import MatchEvent, MatchParticipant, RiotMatch
 
 MOMENT_WINDOW_MS = 15_000
 
@@ -176,6 +176,143 @@ async def fetch_player_match_records(
                 record["scores"][score.metric_key] = score.value
 
     return records
+
+
+async def fetch_player_event_history(
+    db: AsyncSession,
+    puuid: str,
+    match_ids: list[str],
+) -> dict[str, dict[str, Any]]:
+    """Per-match combat context for pattern mining (M3).
+
+    Returns {match_id: {participant_id, team_id, deaths[], kills[],
+    enemy_objectives[]}} resolved against the player's participant id in each
+    match. Reads only local tables filled by the ingest pipeline.
+    """
+    if not match_ids:
+        return {}
+
+    participants = (
+        await db.execute(
+            select(MatchParticipant).where(
+                MatchParticipant.puuid == puuid,
+                MatchParticipant.match_id.in_(match_ids),
+            )
+        )
+    ).scalars()
+
+    history: dict[str, dict[str, Any]] = {
+        participant.match_id: {
+            "participant_id": participant.participant_id,
+            "team_id": participant.team_id,
+            "deaths": [],
+            "kills": [],
+            "enemy_objectives": [],
+        }
+        for participant in participants
+    }
+    if not history:
+        return {}
+
+    events = (
+        await db.execute(
+            select(MatchEvent).where(
+                MatchEvent.match_id.in_(list(history.keys())),
+                MatchEvent.event_type.in_(["CHAMPION_KILL", "ELITE_MONSTER_KILL", "BUILDING_KILL"]),
+            )
+        )
+    ).scalars()
+
+    for event in events:
+        context = history.get(event.match_id)
+        if context is None:
+            continue
+        if event.event_type == "CHAMPION_KILL":
+            raw = event.raw_json or {}
+            point = {
+                "timestamp_ms": event.timestamp_ms,
+                "minute": event.minute,
+                "x": event.position_x,
+                "y": event.position_y,
+                "shutdown_bounty": int(raw.get("shutdownBounty") or 0),
+            }
+            if event.victim_id == context["participant_id"]:
+                context["deaths"].append(point)
+            elif event.killer_id == context["participant_id"]:
+                context["kills"].append(point)
+            continue
+
+        objective_team = event.killer_team_id
+        if event.event_type == "BUILDING_KILL":
+            # BUILDING_KILL carries the *destroyed* team; credit the opponent.
+            if event.team_id == 100:
+                objective_team = 200
+            elif event.team_id == 200:
+                objective_team = 100
+        if objective_team in (100, 200) and objective_team != context["team_id"]:
+            context["enemy_objectives"].append(
+                {
+                    "timestamp_ms": event.timestamp_ms,
+                    "minute": event.minute,
+                    "event_type": event.event_type,
+                    "monster_type": event.monster_type,
+                    "building_type": event.building_type,
+                }
+            )
+
+    for context in history.values():
+        context["deaths"].sort(key=lambda item: item["timestamp_ms"])
+        context["kills"].sort(key=lambda item: item["timestamp_ms"])
+        context["enemy_objectives"].sort(key=lambda item: item["timestamp_ms"])
+    return history
+
+
+async def get_cached_report(
+    db: AsyncSession,
+    puuid: str,
+    cache_key: str,
+    report_type: str = "summary",
+) -> AnalysisReport | None:
+    stmt = (
+        select(AnalysisReport)
+        .where(
+            AnalysisReport.puuid == puuid,
+            AnalysisReport.cache_key == cache_key,
+            AnalysisReport.report_type == report_type,
+        )
+        .order_by(AnalysisReport.id.desc())
+        .limit(1)
+    )
+    return (await db.execute(stmt)).scalars().first()
+
+
+async def save_report(
+    db: AsyncSession,
+    puuid: str,
+    cache_key: str,
+    window: str,
+    generated_by: str,
+    content: dict[str, Any],
+    report_type: str = "summary",
+) -> None:
+    await db.execute(
+        delete(AnalysisReport).where(
+            AnalysisReport.puuid == puuid,
+            AnalysisReport.cache_key == cache_key,
+            AnalysisReport.report_type == report_type,
+        )
+    )
+    db.add(
+        AnalysisReport(
+            puuid=puuid,
+            report_type=report_type,
+            window=window,
+            cache_key=cache_key,
+            generated_by=generated_by,
+            content=content,
+        )
+    )
+    await db.commit()
 
 
 async def replace_aggregate_scores(

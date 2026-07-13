@@ -28,6 +28,7 @@ from app.schemas.riot import (
     MatchReviewResponse,
     MatchSummaryResponse,
     MatchTimelineAnalysisResponse,
+    PlayerReportResponse,
     RankAnalysisResponse,
     RoleFitResponse,
     ScorecardResponse,
@@ -48,6 +49,7 @@ from app.services.turning_points import detect_turning_points
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
 from app.services.match_data import get_match_cached, get_timeline_cached
 from app.services.match_summaries import summarize_match_for_player
+from app.services.reports import get_or_create_report
 from app.services.win_probability import build_win_curve
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
@@ -283,6 +285,30 @@ async def get_rank_analysis(
         recommended=role_analysis["recommended"],
         caution=role_analysis["caution"],
     )
+
+
+@router.get("/summoner/{game_name}/{tag_line}/report", response_model=PlayerReportResponse)
+async def get_player_report(
+    game_name: str,
+    tag_line: str,
+    window: int = Query(default=20, ge=5, le=30),
+    force: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+) -> PlayerReportResponse:
+    client = RiotClient()
+
+    try:
+        account = await client.get_account_by_riot_id(game_name, tag_line)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    report = await get_or_create_report(
+        db=db,
+        puuid=account["puuid"],
+        window=window,
+        force=force,
+    )
+    return PlayerReportResponse(**report)
 
 
 @router.get("/matches/{match_id}")

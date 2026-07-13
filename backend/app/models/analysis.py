@@ -71,6 +71,30 @@ class MetricScore(Base):
     )
 
 
+class AnalysisReport(Base):
+    """Cached AI/rule-based reports keyed by (puuid, cache_key).
+
+    cache_key encodes report version, metric version, window, and the latest
+    match id — so a report is regenerated only when new data or new formulas
+    exist (LLM cost guard).
+    """
+
+    __tablename__ = "analysis_reports"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    puuid: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    report_type: Mapped[str] = mapped_column(String(32), nullable=False, default="summary")
+    window: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cache_key: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    generated_by: Mapped[str] = mapped_column(String(16), nullable=False, default="rules")
+    content: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+
 class IngestJob(Base):
     """Tracks background multi-match ingestion requests (queued by M2 role analysis)."""
 
