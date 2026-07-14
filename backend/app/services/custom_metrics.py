@@ -1,10 +1,17 @@
 from typing import Any
 
+from app.services.episodes import attribute_objectives_to_deaths
+
 # Bump when any score formula changes; stored scores carry this so raw JSON
 # can be batch-recomputed and stale rows identified (master-plan §2).
 # v2: habit metrics added (gold retention, gambler, teamfight persistence,
 #     death acceleration).
-METRIC_VERSION = 2
+# v3: episode-based objective attribution — one enemy objective is charged to
+#     at most one death (the nearest preceding within 90s) in Death Cost and
+#     Throw Index, instead of every death within the window; teamfight
+#     detection additionally requires spatial proximity (≤3500u) via the
+#     shared episode builder (Phase 3).
+METRIC_VERSION = 3
 
 BLUE_TEAM_ID = 100
 RED_TEAM_ID = 200
@@ -37,8 +44,19 @@ def analyze_player_match(
         if event.get("type") == "CHAMPION_KILL" and event.get("victimId") == participant_id
     ]
 
-    death_cost, death_evidence = _death_cost_index(death_events, objective_events, features, team_id)
-    throw_index, throw_evidence = _throw_index(death_events, objective_events, features, team_id)
+    # Attribute each enemy objective to at most one death (dedup, Phase 3).
+    enemy_objectives = [event for event in objective_events if event["team_id"] != team_id]
+    attribution = attribute_objectives_to_deaths(
+        death_timestamps_ms=[int(death.get("timestamp") or 0) for death in death_events],
+        objective_timestamps_ms=[event["timestamp"] for event in enemy_objectives],
+    )
+    objectives_by_death = {
+        death_index: [enemy_objectives[obj_index] for obj_index in objective_indexes]
+        for death_index, objective_indexes in attribution.items()
+    }
+
+    death_cost, death_evidence = _death_cost_index(death_events, objectives_by_death, features, team_id)
+    throw_index, throw_evidence = _throw_index(death_events, objectives_by_death, features, team_id)
     objective_setup, objective_evidence = _objective_setup_score(
         objective_events,
         events,
@@ -79,17 +97,17 @@ def analyze_player_match(
 
 def _death_cost_index(
     death_events: list[dict[str, Any]],
-    objective_events: list[dict[str, Any]],
+    objectives_by_death: dict[int, list[dict[str, Any]]],
     features: list[dict[str, Any]],
     team_id: int,
 ) -> tuple[int, list[dict[str, Any]]]:
     score = 0
     evidence: list[dict[str, Any]] = []
 
-    for death in death_events:
+    for death_index, death in enumerate(death_events):
         timestamp_ms = int(death.get("timestamp") or 0)
         minute = timestamp_ms // 60000
-        enemy_objectives = _objective_events_after_death(objective_events, timestamp_ms, team_id)
+        enemy_objectives = objectives_by_death.get(death_index, [])
         team_gold_diff = _team_gold_diff_at(features, timestamp_ms, team_id)
         death_score = 8
 
@@ -145,18 +163,18 @@ def _death_cost_index(
 
 def _throw_index(
     death_events: list[dict[str, Any]],
-    objective_events: list[dict[str, Any]],
+    objectives_by_death: dict[int, list[dict[str, Any]]],
     features: list[dict[str, Any]],
     team_id: int,
 ) -> tuple[int, list[dict[str, Any]]]:
     score = 0
     evidence: list[dict[str, Any]] = []
 
-    for death in death_events:
+    for death_index, death in enumerate(death_events):
         timestamp_ms = int(death.get("timestamp") or 0)
         before_diff = _team_gold_diff_at(features, timestamp_ms, team_id)
         after_diff = _team_gold_diff_at(features, timestamp_ms + OBJECTIVE_WINDOW_MS, team_id)
-        enemy_objectives = _objective_events_after_death(objective_events, timestamp_ms, team_id)
+        enemy_objectives = objectives_by_death.get(death_index, [])
 
         if before_diff <= 1000:
             continue
@@ -393,19 +411,6 @@ def _objective_event(event: dict[str, Any], match: dict[str, Any]) -> dict[str, 
         "objective": objective,
         "killer_id": event.get("killerId"),
     }
-
-
-def _objective_events_after_death(
-    objective_events: list[dict[str, Any]],
-    death_timestamp_ms: int,
-    team_id: int,
-) -> list[dict[str, Any]]:
-    return [
-        event
-        for event in objective_events
-        if event["team_id"] != team_id
-        and death_timestamp_ms <= event["timestamp"] <= death_timestamp_ms + OBJECTIVE_WINDOW_MS
-    ]
 
 
 def _team_deaths_in_window(

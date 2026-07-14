@@ -101,7 +101,7 @@ export function PlayerReportPanel({ gameName, tagLine }: { gameName: string; tag
                 {report.generated_by === "llm" ? "AI 생성" : "규칙 기반"}
               </span>
               {report.cached && <span className="report-pill is-cached">캐시됨</span>}
-              <span className="report-meta-text">최근 {report.games_analyzed}경기 기준</span>
+              <span className="report-meta-text">최근 솔로랭크 {report.games_analyzed}경기 기준</span>
             </div>
             <button className="rank-refresh-button" onClick={() => generate(true)} type="button">
               <RefreshCw size={14} aria-hidden="true" />
@@ -205,7 +205,17 @@ export function PlayerReportPanel({ gameName, tagLine }: { gameName: string; tag
                   <strong>{autopsy.shutdown_gold_conceded}G</strong>
                 </span>
                 <span className="autopsy-chip">
-                  데스→오브젝트 손실 <strong>{Math.round(autopsy.objective_linked_share * 100)}%</strong>
+                  {autopsy.objective_analyzable_deaths > 0 ? (
+                    <>
+                      데스 후 오브젝트 획득 동반{" "}
+                      <strong>{Math.round(autopsy.objective_linked_share * 100)}%</strong>
+                      <span className="autopsy-chip-sub">
+                        {" "}(분석 가능 {autopsy.objective_analyzable_deaths}회 기준)
+                      </span>
+                    </>
+                  ) : (
+                    <>오브젝트 분석 가능 데스 없음</>
+                  )}
                 </span>
                 {autopsy.avg_first_death_minute !== null && (
                   <span className="autopsy-chip">

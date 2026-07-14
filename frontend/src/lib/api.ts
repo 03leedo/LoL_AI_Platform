@@ -365,6 +365,8 @@ export type PlayerReportAutopsy = {
   kills: number;
   shutdown_deaths: number;
   shutdown_gold_conceded: number;
+  /** 오브젝트가 살아 있거나 곧 생성될 시점의 데스 수 (동반률의 분모) */
+  objective_analyzable_deaths: number;
   objective_linked_deaths: number;
   objective_linked_share: number;
   avg_first_death_minute: number | null;

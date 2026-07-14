@@ -30,8 +30,11 @@ from app.services.scorecard import build_scorecard
 
 logger = logging.getLogger(__name__)
 
-REPORT_VERSION = 2  # v2: limitations + replay_questions (Phase 1)
+# v2: limitations + replay_questions (Phase 1)
+# v3: queue-filtered aggregation + analyzable-death denominator (Phases 2/3)
+REPORT_VERSION = 3
 MIN_GAMES_FOR_REPORT = 3
+DEFAULT_QUEUE_ID = 420  # ranked solo
 
 STANDARD_REPORT_LIMITATIONS = [
     "모든 수치는 Riot API 데이터 기반 관측이며, 장면의 의도나 팀 상황은 리플레이 확인 전에는 판정하지 않습니다.",
@@ -60,8 +63,14 @@ async def get_or_create_report(
     puuid: str,
     window: int,
     force: bool = False,
+    queue: int | None = DEFAULT_QUEUE_ID,
 ) -> dict[str, Any]:
-    records = await fetch_player_match_records(db=db, puuid=puuid, limit=window)
+    records = await fetch_player_match_records(
+        db=db,
+        puuid=puuid,
+        limit=window,
+        queue_ids=[queue] if queue else None,
+    )
     games = len(records)
     window_key = f"recent{window}"
 
@@ -85,7 +94,7 @@ async def get_or_create_report(
         }
 
     latest_match_id = records[0]["match_id"]
-    cache_key = f"v{REPORT_VERSION}:m{METRIC_VERSION}:{window_key}:{latest_match_id}"
+    cache_key = f"v{REPORT_VERSION}:m{METRIC_VERSION}:q{queue or 0}:{window_key}:{latest_match_id}"
 
     if not force:
         cached = await get_cached_report(db=db, puuid=puuid, cache_key=cache_key)
@@ -176,10 +185,10 @@ def build_deterministic_report(
         f"표본 {games}경기 기준입니다. 이 리포트의 평균 점수는 단순 평균이라 표본이 적을수록 신뢰도가 낮습니다"
         " (포지션 적합도만 표본 보정이 적용됩니다)."
     )
-    if any(p["key"] == "objective_linked_deaths" for p in patterns):
+    if (autopsy or {}).get("objective_analyzable_deaths"):
         limitations.append(
-            "'데스 후 오브젝트 획득 동반률'은 전체 데스를 분모로 쓴 근사치입니다. "
-            "오브젝트 생성 여부를 고려한 분모 교정은 에피소드 엔진(Phase 3)에서 적용됩니다."
+            "'데스 후 오브젝트 획득 동반률'의 분모는 오브젝트가 살아 있거나 90초 내 생성 예정이던 "
+            "'분석 가능 데스'만 포함합니다. 오브젝트 생성 시각은 패치 근사 규칙으로 계산됩니다."
         )
 
     return {

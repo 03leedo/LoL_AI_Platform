@@ -10,6 +10,11 @@ text is Korean because patterns render directly in the report UI.
 
 from typing import Any
 
+from app.services.episodes import (
+    ELITE_TYPES,
+    elite_availability_windows,
+    is_objective_analyzable_death,
+)
 from app.services.heatmaps import zone_of
 
 OBJECTIVE_WINDOW_MS = 90_000
@@ -131,17 +136,22 @@ def summarize_death_autopsy(event_history: dict[str, dict[str, Any]]) -> dict[st
     kills = sum(len(ctx["kills"]) for ctx in event_history.values())
     shutdown_deaths = 0
     shutdown_gold = 0
+    analyzable_deaths = 0
     objective_linked = 0
     first_death_minutes: list[int] = []
 
     for context in event_history.values():
+        windows = _availability_windows(context)
         if context["deaths"]:
             first_death_minutes.append(context["deaths"][0]["minute"])
         for death in context["deaths"]:
             if death.get("shutdown_bounty"):
                 shutdown_deaths += 1
                 shutdown_gold += death["shutdown_bounty"]
-            if _objective_after(context["enemy_objectives"], death["timestamp_ms"]):
+            if windows is not None and not is_objective_analyzable_death(death["timestamp_ms"], windows):
+                continue
+            analyzable_deaths += 1
+            if _enemy_elite_after(context["enemy_objectives"], death["timestamp_ms"]):
                 objective_linked += 1
 
     return {
@@ -150,14 +160,26 @@ def summarize_death_autopsy(event_history: dict[str, dict[str, Any]]) -> dict[st
         "kills": kills,
         "shutdown_deaths": shutdown_deaths,
         "shutdown_gold_conceded": shutdown_gold,
+        "objective_analyzable_deaths": analyzable_deaths,
         "objective_linked_deaths": objective_linked,
-        "objective_linked_share": round(objective_linked / deaths, 2) if deaths else 0.0,
+        # Share of ANALYZABLE deaths (SPEC §6.3 denominator correction),
+        # not of all deaths.
+        "objective_linked_share": round(objective_linked / analyzable_deaths, 2) if analyzable_deaths else 0.0,
         "avg_first_death_minute": (
             round(sum(first_death_minutes) / len(first_death_minutes), 1)
             if first_death_minutes
             else None
         ),
     }
+
+
+def _availability_windows(context: dict[str, Any]) -> list[tuple[int, float]] | None:
+    """None = availability unknown (legacy callers without elite_objectives);
+    every death is then treated as analyzable, matching pre-Phase-3 behavior."""
+    elite_objectives = context.get("elite_objectives")
+    if elite_objectives is None:
+        return None
+    return elite_availability_windows(elite_objectives)
 
 
 def _first_death_window(
@@ -238,19 +260,24 @@ def _death_zone(event_history: dict[str, dict[str, Any]]) -> list[dict[str, Any]
 
 def _objective_linked_deaths(event_history: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     linked = 0
+    analyzable = 0
     total_deaths = 0
     matches: set[str] = set()
 
     for match_id, context in event_history.items():
+        windows = _availability_windows(context)
         for death in context["deaths"]:
             total_deaths += 1
-            if _objective_after(context["enemy_objectives"], death["timestamp_ms"]):
+            if windows is not None and not is_objective_analyzable_death(death["timestamp_ms"], windows):
+                continue
+            analyzable += 1
+            if _enemy_elite_after(context["enemy_objectives"], death["timestamp_ms"]):
                 linked += 1
                 matches.add(match_id)
 
-    if total_deaths == 0:
+    if analyzable == 0:
         return []
-    share = linked / total_deaths
+    share = linked / analyzable
     if linked < OBJECTIVE_DEATH_MIN_COUNT or share < OBJECTIVE_DEATH_MIN_SHARE:
         return []
 
@@ -260,10 +287,11 @@ def _objective_linked_deaths(event_history: dict[str, dict[str, Any]]) -> list[d
             "severity": "critical",
             "title": "데스 직후 상대 오브젝트 획득이 동반되는 경향",
             "description": (
-                f"데스 {total_deaths}회 중 {linked}회({share:.0%})에서 90초 안에 상대 오브젝트 획득이 관측됐습니다. "
-                "인과가 아니라 동반 관측이며, 전체 데스를 분모로 쓴 근사치입니다(오브젝트 생성 여부 미고려)."
+                f"오브젝트가 살아 있거나 곧 생성될 시점의 '분석 가능 데스' {analyzable}회 중 "
+                f"{linked}회({share:.0%})에서 90초 안에 상대의 엘리트 오브젝트 획득이 관측됐습니다. "
+                "인과가 아니라 동반 관측이며, 오브젝트 생성 시각은 패치 근사 규칙으로 계산됩니다."
             ),
-            "stat": f"{linked}/{total_deaths}회 ({share:.0%})",
+            "stat": f"분석 가능 {analyzable}회 중 {linked}회 ({share:.0%}) · 전체 데스 {total_deaths}회",
             "matches": sorted(matches),
         }
     ]
@@ -355,8 +383,12 @@ def _metric_average(
     return sum(values) / len(values), matches
 
 
-def _objective_after(enemy_objectives: list[dict[str, Any]], death_timestamp_ms: int) -> bool:
+def _enemy_elite_after(enemy_objectives: list[dict[str, Any]], death_timestamp_ms: int) -> bool:
+    # Numerator must use the same objective set the availability windows
+    # (denominator) model — DRAGON/RIFTHERALD/BARON only, not e.g. void grubs.
     return any(
-        death_timestamp_ms <= objective["timestamp_ms"] <= death_timestamp_ms + OBJECTIVE_WINDOW_MS
+        objective.get("event_type") == "ELITE_MONSTER_KILL"
+        and str(objective.get("monster_type") or "").upper() in ELITE_TYPES
+        and death_timestamp_ms <= objective["timestamp_ms"] <= death_timestamp_ms + OBJECTIVE_WINDOW_MS
         for objective in enemy_objectives
     )

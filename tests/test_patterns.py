@@ -8,14 +8,18 @@ def make_context(
     deaths: list[dict] | None = None,
     kills: list[dict] | None = None,
     enemy_objectives: list[dict] | None = None,
+    elite_objectives: list[dict] | None = None,
 ) -> dict:
-    return {
+    context = {
         "participant_id": 1,
         "team_id": team_id,
         "deaths": deaths or [],
         "kills": kills or [],
         "enemy_objectives": enemy_objectives or [],
     }
+    if elite_objectives is not None:
+        context["elite_objectives"] = elite_objectives
+    return context
 
 
 def death(minute: int, x: int = 7500, y: int = 7500, shutdown: int = 0) -> dict:
@@ -139,7 +143,7 @@ class AutopsyTest(unittest.TestCase):
             "KR_1": make_context(
                 deaths=[death(8, shutdown=300), death(12)],
                 kills=[death(15)],
-                enemy_objectives=[{"timestamp_ms": 12 * 60_000 + 30_000, "minute": 12, "event_type": "BUILDING_KILL", "monster_type": None, "building_type": "TOWER_BUILDING"}],
+                enemy_objectives=[{"timestamp_ms": 12 * 60_000 + 30_000, "minute": 12, "event_type": "ELITE_MONSTER_KILL", "monster_type": "DRAGON", "building_type": None}],
             ),
             "KR_2": make_context(deaths=[death(10)]),
         }
@@ -150,8 +154,33 @@ class AutopsyTest(unittest.TestCase):
         self.assertEqual(autopsy["kills"], 1)
         self.assertEqual(autopsy["shutdown_deaths"], 1)
         self.assertEqual(autopsy["shutdown_gold_conceded"], 300)
+        # No elite_objectives key in the legacy fixture → availability unknown
+        # → every death counts as analyzable (pre-Phase-3 behavior).
+        self.assertEqual(autopsy["objective_analyzable_deaths"], 3)
         self.assertEqual(autopsy["objective_linked_deaths"], 1)
         self.assertEqual(autopsy["avg_first_death_minute"], 9.0)
+
+    def test_analyzable_denominator_excludes_no_objective_windows(self) -> None:
+        # Death at 3min: dragon first spawn is 5min → not analyzable.
+        # Death at 15min while a dragon is up → analyzable and linked.
+        history = {
+            "KR_1": make_context(
+                deaths=[death(3), death(15)],
+                enemy_objectives=[
+                    {"timestamp_ms": 15 * 60_000 + 40_000, "minute": 15, "event_type": "ELITE_MONSTER_KILL", "monster_type": "DRAGON", "building_type": None}
+                ],
+                elite_objectives=[
+                    {"timestamp_ms": 15 * 60_000 + 40_000, "monster_type": "DRAGON"}
+                ],
+            ),
+        }
+
+        autopsy = summarize_death_autopsy(history)
+
+        self.assertEqual(autopsy["deaths"], 2)
+        self.assertEqual(autopsy["objective_analyzable_deaths"], 1)
+        self.assertEqual(autopsy["objective_linked_deaths"], 1)
+        self.assertEqual(autopsy["objective_linked_share"], 1.0)
 
 
 if __name__ == "__main__":

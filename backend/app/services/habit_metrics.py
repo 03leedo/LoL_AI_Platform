@@ -17,6 +17,7 @@ import math
 from typing import Any
 
 from app.services.challenges import get_challenge_int
+from app.services.episodes import build_fight_episodes
 
 BLUE_TEAM_ID = 100
 RED_TEAM_ID = 200
@@ -29,7 +30,7 @@ ISOLATION_DISTANCE = 4000
 MAP_DIAGONAL_SUM = 15_000
 DEEP_TERRITORY_MARGIN = 1000
 
-FIGHT_GAP_MS = 20_000
+# Fight qualification (clustering thresholds live in services/episodes.py).
 FIGHT_MIN_KILLS = 3
 FIGHT_MIN_PARTICIPANTS = 4
 FIGHT_EDGE_PADDING_MS = 5_000
@@ -493,35 +494,17 @@ def _teamfight_persistence(
 
 
 def _detect_teamfights(events: list[dict[str, Any]]) -> list[tuple[int, int, list[dict[str, Any]]]]:
-    kills = sorted(
-        (event for event in events if event.get("type") == "CHAMPION_KILL"),
-        key=lambda event: int(event.get("timestamp") or 0),
-    )
-
+    """Fight episodes come from the shared episode engine (time AND distance
+    clustering, Phase 3); this only applies teamfight qualification on top."""
     fights: list[tuple[int, int, list[dict[str, Any]]]] = []
-    cluster: list[dict[str, Any]] = []
-
-    for kill in kills:
-        timestamp = int(kill.get("timestamp") or 0)
-        if cluster and timestamp - int(cluster[-1].get("timestamp") or 0) > FIGHT_GAP_MS:
-            _append_fight(fights, cluster)
-            cluster = []
-        cluster.append(kill)
-    _append_fight(fights, cluster)
+    for episode in build_fight_episodes(events):
+        kills = episode["kills"]
+        if episode["kill_count"] < FIGHT_MIN_KILLS:
+            continue
+        if len(_fight_participant_ids(kills)) < FIGHT_MIN_PARTICIPANTS:
+            continue
+        fights.append((episode["start_ms"], episode["end_ms"], kills))
     return fights
-
-
-def _append_fight(
-    fights: list[tuple[int, int, list[dict[str, Any]]]],
-    cluster: list[dict[str, Any]],
-) -> None:
-    if len(cluster) < FIGHT_MIN_KILLS:
-        return
-    if len(_fight_participant_ids(cluster)) < FIGHT_MIN_PARTICIPANTS:
-        return
-    start = int(cluster[0].get("timestamp") or 0)
-    end = int(cluster[-1].get("timestamp") or 0)
-    fights.append((start, end, list(cluster)))
 
 
 def _fight_participant_ids(kills: list[dict[str, Any]]) -> set[int]:

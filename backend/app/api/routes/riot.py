@@ -246,6 +246,7 @@ async def get_rank_analysis(
     game_name: str,
     tag_line: str,
     window: int = Query(default=20, ge=5, le=30),
+    queue: int = Query(default=420, ge=0, description="Queue id filter; 0 disables"),
     db: AsyncSession = Depends(get_db),
 ) -> RankAnalysisResponse:
     client = RiotClient()
@@ -256,7 +257,12 @@ async def get_rank_analysis(
         raise riot_error_to_http(exc) from exc
 
     puuid = account["puuid"]
-    records = await fetch_player_match_records(db=db, puuid=puuid, limit=window)
+    records = await fetch_player_match_records(
+        db=db,
+        puuid=puuid,
+        limit=window,
+        queue_ids=[queue] if queue else None,
+    )
     scorecard = build_scorecard(records)
     role_analysis = build_role_analysis(records)
 
@@ -294,6 +300,7 @@ async def get_player_report(
     tag_line: str,
     window: int = Query(default=20, ge=5, le=30),
     force: bool = Query(default=False),
+    queue: int = Query(default=420, ge=0, description="Queue id filter; 0 disables"),
     db: AsyncSession = Depends(get_db),
 ) -> PlayerReportResponse:
     client = RiotClient()
@@ -308,6 +315,7 @@ async def get_player_report(
         puuid=account["puuid"],
         window=window,
         force=force,
+        queue=queue or None,
     )
     return PlayerReportResponse(**report)
 

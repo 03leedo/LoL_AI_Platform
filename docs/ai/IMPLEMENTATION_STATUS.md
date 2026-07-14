@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `1 — Evidence-safe Analysis Semantics` **COMPLETE** (domain-reviewed) → next is `2 — Versioned Data` remaining gaps, then `3 — Episode Engine`
-- State: `PHASE_2_READY`
+- Phase: `3 — Episode Engine` **core COMPLETE** (domain-reviewed; episode persistence + full death-context consolidation deferred) → next is `4 — Individual Profile v1` (cohort percentiles, recency weighting)
+- State: `PHASE_4_READY`
 - Last updated: `2026-07-14`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -22,8 +22,8 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 |---|---|---|
 | 0 Repository audit | ✅ done | `docs/ai/REPOSITORY_AUDIT.md` (generated 2026-07-13) |
 | 1 Evidence-safe semantics | ✅ done (2026-07-14) | `services/analysis_semantics.py`: deterministic evidence IDs, observation/limitation/replay_question statements, performance vs risk_style grouping; 우세도 rename + "최근 강세" copy; causal-wording pass enforced by `tests/test_wording_lint.py`; domain reviewer findings applied |
-| 2 Versioned data foundation | 🟡 mostly done | raw JSONB (`riot_matches`, `riot_match_timelines`), `metric_version` on `metric_scores`, idempotent-ish ingestion (merge / delete+insert); missing: completeness flags, evidence lineage IDs |
-| 3 Episode engine | 🟡 partial | fight clustering in `habit_metrics._detect_teamfights`; no persisted episodes, no objective-analyzable denominator, Death Cost can double-count one objective across deaths |
+| 2 Versioned data foundation | 🟡 mostly done | + queue_id filter on aggregation reads (2026-07-14, default ranked solo 420); still missing: completeness flags |
+| 3 Episode engine | ✅ core done (2026-07-14) | `services/episodes.py` (EPISODE_VERSION 1): time+distance fight clustering, elite availability windows, one-objective↔one-death attribution (METRIC_VERSION 3), objective-analyzable denominator in patterns/autopsy; deferred: episode persistence, consolidated death-context builder, HORDE/Atakhan windows |
 | 4 Individual profile v1 | 🟡 partial | `scorecard.py` (6 abilities) + `role_analyzer.py` (shrinkage); no cohort percentiles, no recency weighting |
 | 5 Representative/best/deviation matches | ❌ | not started |
 | 6 Evidence-grounded AI agent | 🟡 partial | `reports.py` + `llm_provider.py` (Gemini via OpenAI-compat); patterns rule-computed, LLM prose-only; missing evidence-ID enforcement and tool-based access |
@@ -104,7 +104,25 @@ Additional outputs: win curve (`win_probability.py` — rename 승률→우세�
 
 ### Outcome
 
-Phase 1 — Evidence-safe analysis semantics: **COMPLETE** (2026-07-14).
+Phase 2 gap + Phase 3 episode engine: **COMPLETE** (2026-07-14, domain-reviewed twice).
+
+Delivered:
+- `services/episodes.py` (EPISODE_VERSION 1, thresholds centralized): fight clustering by ≤20s AND
+  ≤3500u (missing positions merge by time with `confidence: medium`), elite availability windows
+  (dragon 5:00/+5:00, baron 20:00/+6:00, herald 8:00–~19:55 — patch-approximate, disclosed),
+  objective→death attribution (nearest preceding death within 90s, one objective charged once).
+- Death Cost / Throw Index consume deduplicated attribution; teamfight detection uses the shared
+  builder → METRIC_VERSION 3. Regression test: 4 deaths + 1 dragon = 48pts (was 96).
+- patterns/autopsy: objective-linked share now uses the analyzable-death denominator with
+  elite-set-consistent numerator; stat shows 분석 가능/전체 both. Legacy contexts fall back to
+  all-analyzable explicitly.
+- Aggregation queue filter (default 420; `queue=0` disables) on rank-analysis/report; report cache
+  key gains `q{queue}`; REPORT_VERSION 3. UI copy says "최근 솔로랭크 N경기 기준".
+- Frontend: autopsy chip shows "(분석 가능 N회 기준)" and renders "분석 가능 데스 없음" instead of 0%.
+- Second domain review findings applied (elite-set numerator filter, empty-denominator display,
+  unconditional approximation disclosure, meaningful symmetry test).
+
+Previous phase (1 — evidence-safe semantics) record retained below in git history (commit 40cc3f1).
 
 Delivered:
 - `services/analysis_semantics.py` — deterministic evidence IDs (`ev:{match}:{type}:{minute}:{n}`),
@@ -172,6 +190,8 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-13 | alembic upgrade head --sql | pass (offline) | |
 | 2026-07-14 | `pytest` | 115 passed | + analysis semantics, wording lint (fixture+source) |
 | 2026-07-14 | frontend tsc --noEmit | pass | Phase 1 UI regroup/rename |
+| 2026-07-14 | `pytest` | 129 passed | + episodes (clustering/availability/attribution/dedup regression) |
+| 2026-07-14 | frontend tsc --noEmit | pass | autopsy chip + queue copy |
 
 ## Changed Files in Current Phase
 
@@ -182,16 +202,20 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
 
 ## Remaining Risks
 
-- Death Cost objective double-counting until the Phase 3 episode engine.
-- Objective-linked death share uses all deaths as denominator (disclosed in copy + report limitation; Phase 3 predicate fix).
-- **Queue mixing**: `fetch_player_match_records` aggregates all queues (solo/flex/normal) without a
-  `queue_id` filter — patterns/reports/scorecard silently mix them (domain review 2026-07-14; fix in Phase 2 gaps).
+- Elite spawn rules are patch-approximate: herald timing matches pre-14.x (recent patches shift with
+  void grubs), HORDE/Atakhan windows unmodeled, elder respawn approximated by the dragon chain —
+  analyzable classification drifts on current-patch matches (disclosed in user-facing copy).
+- Availability windows end open (`+inf`) for never-taken objectives → late deaths stay "analyzable".
+- Legacy stored histories without `elite_objectives` use the all-deaths fallback denominator until
+  matches are re-ingested (mixed denominator semantics across data ages).
+- Objective→death attribution is time-only (no spatial link to the pit).
+- Episode `confidence` (medium on missing positions) computed but not yet surfaced in UI.
 - **Shrinkage inconsistency**: role-fit shrinks toward 50 but scorecard/pattern averages do not —
-  cross-surface point comparisons are apples-to-oranges until unified (Phase 4).
+  unify in Phase 4.
 - Statement layer language mix (English evidence + Korean limitations) — cosmetic, deferred.
 - Gemini thinking models may consume output budget on reasoning; MAX_OUTPUT_TOKENS raised to 4000, sanitizer falls back to rules on truncation.
 
 ## Next Action
 
-Phase 2 remaining gaps: queue_id filter on aggregation reads, completeness/confidence flags on ingestion,
-then Phase 3 (episode engine: fight/death/objective episodes + objective-analyzable denominator).
+Phase 4 — Individual Profile v1: cohort percentiles (queue/role/tier/patch), recency weighting,
+sample-size shrinkage unified across surfaces, submetric+evidence drill-down per profile dimension.

@@ -330,8 +330,8 @@ export function RankAnalysisPanel({ gameName, tagLine }: { gameName: string; tag
               <div className="rank-analysis-footer">
                 <div className="rank-footnote-group">
                   <p className="rank-footnote">
-                    최근 {analysis.games_analyzed}경기 기준 · 표본이 적은 포지션은 점수가 중앙(50)으로
-                    보정됩니다
+                    최근 솔로랭크 {analysis.games_analyzed}경기 기준 · 포지션 적합도는 표본이 적을수록
+                    중앙(50)으로 보정됩니다
                   </p>
                   <p className="rank-footnote">
                     최근 표본 기준 관측이며 고정된 적성 판정이 아닙니다.

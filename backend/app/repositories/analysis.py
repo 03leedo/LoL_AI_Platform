@@ -127,12 +127,14 @@ async def fetch_player_match_records(
     db: AsyncSession,
     puuid: str,
     limit: int = 20,
+    queue_ids: list[int] | None = None,
 ) -> list[dict[str, Any]]:
     """Load a player's recent stored matches as plain dicts for aggregation.
 
     Reads only the local DB (no Riot calls) — the ingest pipeline is what
     fills it. Each record: match metadata + participant stats + challenges +
-    per-match metric values keyed by metric_key.
+    per-match metric values keyed by metric_key. Pass queue_ids to keep
+    solo/flex/normal queues from being silently mixed (Phase 2 gap).
     """
     stmt = (
         select(MatchParticipant, RiotMatch.game_creation, RiotMatch.queue_id)
@@ -141,6 +143,8 @@ async def fetch_player_match_records(
         .order_by(RiotMatch.game_creation.desc().nulls_last())
         .limit(limit)
     )
+    if queue_ids:
+        stmt = stmt.where(RiotMatch.queue_id.in_(queue_ids))
     rows = (await db.execute(stmt)).all()
 
     records: list[dict[str, Any]] = []
@@ -208,6 +212,9 @@ async def fetch_player_event_history(
             "deaths": [],
             "kills": [],
             "enemy_objectives": [],
+            # All elite kills regardless of team — used to model objective
+            # availability windows for the analyzable-death predicate.
+            "elite_objectives": [],
         }
         for participant in participants
     }
@@ -242,6 +249,11 @@ async def fetch_player_event_history(
                 context["kills"].append(point)
             continue
 
+        if event.event_type == "ELITE_MONSTER_KILL":
+            context["elite_objectives"].append(
+                {"timestamp_ms": event.timestamp_ms, "monster_type": event.monster_type}
+            )
+
         objective_team = event.killer_team_id
         if event.event_type == "BUILDING_KILL":
             # BUILDING_KILL carries the *destroyed* team; credit the opponent.
@@ -264,6 +276,7 @@ async def fetch_player_event_history(
         context["deaths"].sort(key=lambda item: item["timestamp_ms"])
         context["kills"].sort(key=lambda item: item["timestamp_ms"])
         context["enemy_objectives"].sort(key=lambda item: item["timestamp_ms"])
+        context["elite_objectives"].sort(key=lambda item: item["timestamp_ms"])
     return history
 
 

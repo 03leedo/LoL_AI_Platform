@@ -359,6 +359,9 @@ class DeathAutopsyResponse(BaseModel):
     kills: int = 0
     shutdown_deaths: int = 0
     shutdown_gold_conceded: int = 0
+    # Denominator-corrected (Phase 3): deaths while an elite objective was
+    # live or imminent; share is linked/analyzable, not linked/all.
+    objective_analyzable_deaths: int = 0
     objective_linked_deaths: int = 0
     objective_linked_share: float = 0.0
     avg_first_death_minute: float | None = None
