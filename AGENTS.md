@@ -1,49 +1,45 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Goal
 Build an evidence-based LoL analysis platform for individual users.
 
-## Context loading
+## Read only what is needed
 1. Read `docs/ai/IMPLEMENTATION_STATUS.md`.
 2. Read the active phase in `docs/ai/EXECUTION_PLAN.md`.
 3. Read only the documents listed for that phase.
 4. Inspect the repository before proposing changes.
 
-Repository code is the source of truth for current architecture, commands, formulas, and behavior. Do not load the full reference plan unless required.
+Repository code is the source of truth for current architecture, commands, formulas, and behavior. Planning documents describe goals, not existing implementation.
 
 ## Core rules
 - Focus on individual analysis. Do not add team-fit, roster, synergy, leadership, or mentality scores.
-- Team data is only context, a denominator, or a model input for individual analysis.
+- Team data may be used only as context, a denominator, or a model input for individual analysis.
 - Separate observation, hypothesis, limitation, and replay question.
-- Never rewrite sequence or correlation as causation.
+- Do not convert temporal sequence or correlation into causation.
 - Preserve existing metric formulas unless the active task explicitly changes them.
 - A single match is not permanent skill.
-- Factual claims require evidence IDs or source records.
+- Factual analysis claims require evidence IDs or source records.
 - Low-confidence output must allow `unknown`, `insufficient_data`, or `needs_replay_review`.
-- Use `advantage`, not `win probability`, until calibrated and validated.
-- Risk or style indicators are not positive ability scores.
+- Use `advantage`, not `win probability`, until the model is calibrated and validated.
+- Do not present risk or style as a positive ability score.
 
 ## Workflow
-For complex work, plan before editing.
-
 Before editing:
 - run `git status`;
 - protect existing user changes;
 - inspect relevant code, tests, commands, and contracts;
-- update the work package in `docs/ai/IMPLEMENTATION_STATUS.md`.
+- record the work package in `docs/ai/IMPLEMENTATION_STATUS.md`.
 
 During editing:
 - complete only the active phase;
 - extend existing architecture instead of creating a parallel system;
 - make the smallest coherent change;
 - add tests for changed behavior;
-- centralize and version thresholds and derived logic;
-- use subagents only for bounded investigation or review.
+- keep thresholds and derived logic centralized and versioned.
 
 After editing:
 - run relevant tests, lint, type checks, and build;
 - review the diff for regression and scope creep;
-- use `.claude/agents/domain-reviewer.md` after analysis-semantics changes;
 - update `docs/ai/IMPLEMENTATION_STATUS.md`;
 - report changes, checks, risks, and the next action;
 - stop before the next phase.

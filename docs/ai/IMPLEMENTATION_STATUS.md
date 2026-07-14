@@ -8,7 +8,7 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `0 — Repository Audit` **COMPLETE** (see `docs/REPOSITORY_AUDIT.md`) → next is `1 — Evidence-safe Analysis Semantics`
+- Phase: `0 — Repository Audit` **COMPLETE** (see `docs/ai/REPOSITORY_AUDIT.md`) → next is `1 — Evidence-safe Analysis Semantics`
 - State: `PHASE_1_READY`
 - Last updated: `2026-07-13`
 - Branch: `main`
@@ -16,11 +16,11 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Phase Reconciliation (handoff pack ↔ completed milestones M0–M3)
 
-The repo predates this pack. Mapping of `docs/FABLE_EXECUTION_PLAN.md` phases to what already exists:
+The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to what already exists:
 
 | Plan phase | Status | Existing implementation |
 |---|---|---|
-| 0 Repository audit | ✅ done | `docs/REPOSITORY_AUDIT.md` (generated 2026-07-13) |
+| 0 Repository audit | ✅ done | `docs/ai/REPOSITORY_AUDIT.md` (generated 2026-07-13) |
 | 1 Evidence-safe semantics | ❌ **next** | evidence has `{value, confidence, direction}` but no evidence IDs, no observation/hypothesis/limitation/replay-question separation; "승률"·"추천 포지션" naming pending |
 | 2 Versioned data foundation | 🟡 mostly done | raw JSONB (`riot_matches`, `riot_match_timelines`), `metric_version` on `metric_scores`, idempotent-ish ingestion (merge / delete+insert); missing: completeness flags, evidence lineage IDs |
 | 3 Episode engine | 🟡 partial | fight clustering in `habit_metrics._detect_teamfights`; no persisted episodes, no objective-analyzable denominator, Death Cost can double-count one objective across deaths |
@@ -104,7 +104,7 @@ Additional outputs: win curve (`win_probability.py` — rename 승률→우세�
 
 ### Outcome
 
-Phase 1 — Evidence-safe analysis semantics (not yet started; file-level plan in `docs/REPOSITORY_AUDIT.md` §9).
+Phase 1 — Evidence-safe analysis semantics (not yet started; file-level plan in `docs/ai/REPOSITORY_AUDIT.md` §9).
 
 ### Preserved behavior
 
@@ -156,7 +156,7 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 
 ## Changed Files in Current Phase
 
-Phase 0 deliverables only: `docs/REPOSITORY_AUDIT.md`, this file, `CLAUDE.md`, pack docs copied. Plus bugfix `services/timeline_analyzer.py` (+ regression test) found during audit.
+Phase 0 deliverables only: `docs/ai/REPOSITORY_AUDIT.md`, this file, `CLAUDE.md`, pack docs copied. Plus bugfix `services/timeline_analyzer.py` (+ regression test) found during audit.
 
 ## Remaining Risks
 
@@ -167,4 +167,4 @@ Phase 0 deliverables only: `docs/REPOSITORY_AUDIT.md`, this file, `CLAUDE.md`, p
 
 ## Next Action
 
-Start Phase 1 (evidence-safe analysis semantics) using the file-level plan in `docs/REPOSITORY_AUDIT.md` §9.
+Start Phase 1 (evidence-safe analysis semantics) using the file-level plan in `docs/ai/REPOSITORY_AUDIT.md` §9.

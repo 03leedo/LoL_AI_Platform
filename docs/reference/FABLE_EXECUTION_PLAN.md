@@ -2,8 +2,8 @@
 ## Individual-focused LoL professional analysis platform
 
 This is the **implementation control document**.  
-`docs/PRODUCT_ANALYSIS_SPEC.md` is the detailed domain reference.  
-`docs/IMPLEMENTATION_STATUS.md` is the live source of truth for progress.
+`docs/reference/PRODUCT_ANALYSIS_SPEC.md` is the detailed domain reference.  
+`docs/ai/IMPLEMENTATION_STATUS.md` is the live source of truth for progress.
 
 ---
 
@@ -108,7 +108,7 @@ Produce a reliable map of the current system so later work extends existing beha
 
 Create:
 
-### `docs/REPOSITORY_AUDIT.md`
+### `docs/ai/REPOSITORY_AUDIT.md`
 
 Must include:
 
@@ -123,7 +123,7 @@ Must include:
 9. recommended file-level Phase 1 plan;
 10. explicit list of files that should not be touched yet.
 
-### Update `docs/IMPLEMENTATION_STATUS.md`
+### Update `docs/ai/IMPLEMENTATION_STATUS.md`
 
 Set:
 - current phase;

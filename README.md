@@ -77,13 +77,21 @@ backend/.venv/bin/python -m pytest   # config in pytest.ini (pythonpath=backend)
 
 ## Documentation
 
-- [docs/master-plan.md](docs/master-plan.md) — current roadmap: milestones
-  M0-M5 (MVP) and E1-E3 (replay companion, highlight/vision, live agent),
-  metric catalog, data-reality notes, and architecture evolution.
-- [docs/PRD-expansion.md](docs/PRD-expansion.md) — product spec (feature
-  definitions, scoring design, policy constraints).
-- [docs/development-plan.md](docs/development-plan.md) — superseded sprint
-  plan, kept for history.
+- [docs/ai/IMPLEMENTATION_STATUS.md](docs/ai/IMPLEMENTATION_STATUS.md) — live
+  implementation status and verified commands.
+- [docs/ai/EXECUTION_PLAN.md](docs/ai/EXECUTION_PLAN.md) — current agent phase
+  execution plan.
+- [docs/product/PRODUCT_OVERVIEW.md](docs/product/PRODUCT_OVERVIEW.md) —
+  compact product direction.
+- [docs/domain/ANALYSIS_RULES.md](docs/domain/ANALYSIS_RULES.md) and
+  [docs/domain/DATA_AND_METRICS.md](docs/domain/DATA_AND_METRICS.md) — domain
+  rules and metric definitions.
+- [docs/reference/FULL_PRODUCT_PLAN.md](docs/reference/FULL_PRODUCT_PLAN.md) —
+  full product plan reference.
+- [docs/reference/master-plan.md](docs/reference/master-plan.md),
+  [docs/reference/PRD-expansion.md](docs/reference/PRD-expansion.md), and
+  [docs/reference/development-plan.md](docs/reference/development-plan.md) —
+  historical planning references.
 
 ## Roadmap snapshot
 

@@ -30,7 +30,7 @@ Companion app (Tauri/local collector), Redis, ML tooling: planned, not present.
 
 ## 2. Runtime and Commands
 
-See `docs/IMPLEMENTATION_STATUS.md` → Verified Commands (single source; not duplicated here).
+See `docs/ai/IMPLEMENTATION_STATUS.md` → Verified Commands (single source; not duplicated here).
 
 ## 3. Data Flow
 
@@ -56,11 +56,11 @@ heatmap (GET .../heatmap): timeline kill events → points + coarse zones → de
 
 ## 4. Current Feature Inventory
 
-See `docs/IMPLEMENTATION_STATUS.md` → Current Feature Inventory (kept there as the live copy).
+See `docs/ai/IMPLEMENTATION_STATUS.md` → Current Feature Inventory (kept there as the live copy).
 
 ## 5. Indicator-to-File Map
 
-Live copy in `docs/IMPLEMENTATION_STATUS.md` → Existing Indicator Map. Key constants:
+Live copy in `docs/ai/IMPLEMENTATION_STATUS.md` → Existing Indicator Map. Key constants:
 
 - `custom_metrics`: OBJECTIVE_WINDOW_MS=90s; objective weights baron 25 / dragon 16 / herald 14 / tower 10; METRIC_VERSION=2
 - `habit_metrics`: RICH_GOLD 1500 / wallet-death 1300; ISOLATION 4000u; map diagonal 15000(+1000 deep margin); fight = ≥3 kills, ≤20s gaps, ≥4 participants; chain window 5min; evidence cap 16
