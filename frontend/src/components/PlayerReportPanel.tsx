@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Sparkles } from "lucide-react";
+import { HelpCircle, RefreshCw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LoadingState } from "@/components/StatusViews";
@@ -54,6 +54,8 @@ export function PlayerReportPanel({ gameName, tagLine }: { gameName: string; tag
   const autopsy = report?.autopsy ?? null;
   const hasStrengths = (report?.strengths.length ?? 0) > 0;
   const hasWeaknesses = (report?.weaknesses.length ?? 0) > 0;
+  const replayQuestions = report?.replay_questions ?? [];
+  const limitations = report?.limitations ?? [];
 
   return (
     <section className="history-panel">
@@ -145,6 +147,31 @@ export function PlayerReportPanel({ gameName, tagLine }: { gameName: string; tag
                   <li key={`recommendation-${index}`}>{item}</li>
                 ))}
               </ol>
+            </div>
+          )}
+
+          {replayQuestions.length > 0 && (
+            <div className="report-section">
+              <h3>복기 질문</h3>
+              <ul className="replay-question-list">
+                {replayQuestions.map((question, index) => (
+                  <li key={`replay-question-${index}`}>
+                    <HelpCircle size={14} aria-hidden="true" />
+                    <span>{question}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {limitations.length > 0 && (
+            <div className="report-section">
+              <h3>데이터 한계</h3>
+              <ul className="limitation-list">
+                {limitations.map((limitation, index) => (
+                  <li key={`limitation-${index}`}>{limitation}</li>
+                ))}
+              </ul>
             </div>
           )}
 

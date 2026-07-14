@@ -36,7 +36,7 @@ export function TurningPoints({ points }: { points: MatchTurningPoint[] }) {
                   </span>
                 </div>
                 <p className="turning-point-prob">
-                  승률 {before}% → {after}%
+                  우세도 {before}% → {after}%
                 </p>
                 {point.description && <p className="turning-point-desc">{point.description}</p>}
               </div>

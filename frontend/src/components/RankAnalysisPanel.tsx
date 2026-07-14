@@ -301,7 +301,7 @@ export function RankAnalysisPanel({ gameName, tagLine }: { gameName: string; tag
                       <div className={cardClass} key={roleKey}>
                         <div className="role-card-head">
                           <strong>{formatRole(roleKey)}</strong>
-                          {isRecommended && <span className="role-badge">추천</span>}
+                          {isRecommended && <span className="role-badge">최근 강세</span>}
                           {isCaution && <span className="role-badge caution">주의</span>}
                         </div>
 
@@ -328,10 +328,15 @@ export function RankAnalysisPanel({ gameName, tagLine }: { gameName: string; tag
               </div>
 
               <div className="rank-analysis-footer">
-                <p className="rank-footnote">
-                  최근 {analysis.games_analyzed}경기 기준 · 표본이 적은 포지션은 점수가 중앙(50)으로
-                  보정됩니다
-                </p>
+                <div className="rank-footnote-group">
+                  <p className="rank-footnote">
+                    최근 {analysis.games_analyzed}경기 기준 · 표본이 적은 포지션은 점수가 중앙(50)으로
+                    보정됩니다
+                  </p>
+                  <p className="rank-footnote">
+                    최근 표본 기준 관측이며 고정된 적성 판정이 아닙니다.
+                  </p>
+                </div>
                 <button
                   className="rank-refresh-button"
                   disabled={ingestActive}

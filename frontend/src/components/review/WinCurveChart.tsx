@@ -6,7 +6,7 @@ export function WinCurveChart({ points, team }: { points: WinCurvePoint[]; team:
   }
 
   const invert = team === "red";
-  const label = invert ? "우리 팀 승률 추정 (규칙 기반 v0)" : "블루팀 승률 추정";
+  const label = invert ? "우리 팀 우세도 (규칙 기반 추정 · 검증 전)" : "블루팀 우세도";
 
   const width = 760;
   const height = 220;

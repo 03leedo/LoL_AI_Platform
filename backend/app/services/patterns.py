@@ -39,8 +39,8 @@ ZONE_LABELS = {
 CHRONIC_WEAKNESS_RULES = [
     (
         "gold_retention_score", 35, "gte", "warn",
-        "킬 골드를 아이템으로 늦게 바꾸는 습관",
-        "골드 리텐션 평균 {avg:.0f}점 — 이득을 본 뒤 귀환/전환이 늦어 스노우볼이 멈추는 경향이 반복됩니다.",
+        "킬 골드를 아이템으로 늦게 바꾸는 경향",
+        "골드 리텐션 평균 {avg:.0f}점 — 이득을 본 뒤 귀환/아이템 전환이 늦는 경향이 반복 관측됩니다.",
     ),
     (
         "gambler_index", 35, "gte", "warn",
@@ -49,7 +49,7 @@ CHRONIC_WEAKNESS_RULES = [
     ),
     (
         "death_acceleration_index", 25, "gte", "critical",
-        "첫 데스 후 연쇄 데스로 무너지는 패턴",
+        "첫 데스 후 연쇄 데스가 이어지는 경향",
         "데스 가속도 평균 {avg:.0f}점 — 한 번 죽은 뒤 5분 내 추가 데스가 이어지는 판이 잦습니다.",
     ),
     (
@@ -76,6 +76,21 @@ CHRONIC_STRENGTH_RULES = [
     ("lead_conversion_score", 60, "gte", "리드를 굴릴 줄 아는 운영", "리드 전환 평균 {avg:.0f}점 — 초반 이득을 오브젝트로 연결합니다."),
     ("stability_score", 70, "gte", "안정적인 데스 관리", "안정성 평균 {avg:.0f}점 — 비용이 큰 데스가 적습니다."),
 ]
+
+# Phase 1: replay questions are the honest counterpart to recommendations —
+# they point at scenes to verify instead of asserting causes.
+REPLAY_QUESTIONS_BY_KEY = {
+    "first_death_window": "해당 시간대 직전 1분의 웨이브 상태·아군 위치·미니맵 노출 인원을 리플레이에서 확인해 보세요.",
+    "death_zone": "그 구역으로 진입하기 직전, 미니맵에 보이지 않던 상대가 몇 명이었는지 확인해 보세요.",
+    "objective_linked_deaths": "오브젝트 생성 60~90초 전 장면에서 본인 위치와 시야 상태를 확인해 보세요.",
+    "shutdown_conceded": "제압골을 내준 데스 직전, 후퇴할 수 있는 타이밍이 있었는지 확인해 보세요.",
+    "gold_retention_score": "킬/포탑 골드 획득 직후 귀환 대신 필드에 머문 장면에서 어떤 판단이 있었는지 확인해 보세요.",
+    "gambler_index": "고립 데스 장면에서 가장 가까운 아군과의 거리와 진입 목적을 확인해 보세요.",
+    "death_acceleration_index": "부활 직후 첫 이동 경로가 어디를 향했는지 확인해 보세요.",
+    "teamfight_persistence_score": "한타 시작 시 본인 위치가 팀 대형의 어디였는지 확인해 보세요.",
+    "objective_setup_score": "오브젝트 90초 전 시야·라인 상태가 준비돼 있었는지 확인해 보세요.",
+    "lead_conversion_score": "리드를 잡은 직후 팀이 어떤 목표로 움직였는지 확인해 보세요.",
+}
 
 RECOMMENDATIONS_BY_KEY = {
     "first_death_window": "해당 시간대 직전에는 시야를 먼저 확보하고 웨이브 손해를 감수하더라도 반 박자 뒤로 서 보세요. 첫 데스만 넘겨도 판의 절반이 달라집니다.",
@@ -213,7 +228,7 @@ def _death_zone(event_history: dict[str, dict[str, Any]]) -> list[dict[str, Any]
             "title": f"'{label}' 데스 존 반복",
             "description": (
                 f"최근 데스 {total_deaths}회 중 {top_count}회({share:.0%})가 '{label}' 구역에서 발생했습니다. "
-                "실력보다 특정 구역에 대한 진입 습관이 문제일 가능성이 높습니다."
+                "특정 구역 진입 판단이 반복 요인일 수 있습니다. 해당 장면들을 리플레이로 확인해 보세요."
             ),
             "stat": f"{top_count}/{total_deaths}회 ({share:.0%})",
             "matches": sorted(zone_matches.get(top_zone, set())),
@@ -243,10 +258,10 @@ def _objective_linked_deaths(event_history: dict[str, dict[str, Any]]) -> list[d
         {
             "key": "objective_linked_deaths",
             "severity": "critical",
-            "title": "데스 직후 오브젝트를 내주는 패턴",
+            "title": "데스 직후 상대 오브젝트 획득이 동반되는 경향",
             "description": (
-                f"데스 {total_deaths}회 중 {linked}회({share:.0%})가 90초 안에 상대 오브젝트 획득으로 이어졌습니다. "
-                "단순 데스 수보다 '데스의 타이밍'이 팀 손실을 만들고 있습니다."
+                f"데스 {total_deaths}회 중 {linked}회({share:.0%})에서 90초 안에 상대 오브젝트 획득이 관측됐습니다. "
+                "인과가 아니라 동반 관측이며, 전체 데스를 분모로 쓴 근사치입니다(오브젝트 생성 여부 미고려)."
             ),
             "stat": f"{linked}/{total_deaths}회 ({share:.0%})",
             "matches": sorted(matches),
@@ -277,7 +292,7 @@ def _shutdown_conceded(event_history: dict[str, dict[str, Any]]) -> list[dict[st
             "title": "제압골 헌납 반복",
             "description": (
                 f"최근 경기에서 제압골을 {events}회, 총 {gold}골드 헌납했습니다. "
-                "잘 크다가 한 번의 데스로 상대를 복구시키는 패턴입니다."
+                "성장 중 데스에서 상대에게 큰 골드가 넘어간 장면이 반복 관측됩니다."
             ),
             "stat": f"{events}회 / {gold}골드",
             "matches": sorted(matches),

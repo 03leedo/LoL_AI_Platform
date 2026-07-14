@@ -116,6 +116,8 @@ class PlayerAnalysisScoreResponse(BaseModel):
     value: int | None
     confidence: Literal["low", "medium", "high"]
     direction: Literal["higher_is_better", "higher_is_worse"]
+    # performance: 높을수록 긍정적 능력 / risk_style: 높을수록 강한 경향(성향·위험 신호)
+    group: Literal["performance", "risk_style"] = "performance"
 
 
 class PlayerAnalysisScoresResponse(BaseModel):
@@ -207,6 +209,7 @@ class EvidenceContextResponse(BaseModel):
 
 
 class PlayerAnalysisEvidenceResponse(BaseModel):
+    id: str | None = None
     minute: int
     type: str
     title: str
@@ -215,11 +218,19 @@ class PlayerAnalysisEvidenceResponse(BaseModel):
     context: EvidenceContextResponse | None = None
 
 
+class AnalysisStatementResponse(BaseModel):
+    kind: Literal["observation", "hypothesis", "limitation", "replay_question"]
+    text: str
+    evidence_ids: list[str] = []
+    confidence: Literal["low", "medium", "high"] = "medium"
+
+
 class MatchPlayerAnalysisResponse(BaseModel):
     match_id: str
     player: PlayerAnalysisPlayerResponse
     scores: PlayerAnalysisScoresResponse
     evidence: list[PlayerAnalysisEvidenceResponse]
+    statements: list[AnalysisStatementResponse] = []
 
 
 class KeyEventParticipantResponse(BaseModel):
@@ -365,5 +376,7 @@ class PlayerReportResponse(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     recommendations: list[str] = []
+    limitations: list[str] = []
+    replay_questions: list[str] = []
     patterns: list[ReportPatternResponse] = []
     autopsy: DeathAutopsyResponse | None = None

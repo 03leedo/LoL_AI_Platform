@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ListChecks, Search } from "lucide-react";
+import { ArrowLeft, HelpCircle, ListChecks, Search } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -17,10 +17,80 @@ import {
   MatchPlayerAnalysisResponse,
   MatchReviewAssets,
   MatchTimelineAnalysisResponse,
-  MatchTurningPoint
+  MatchTurningPoint,
+  PlayerAnalysisScore,
+  ScoreGroup
 } from "@/lib/api";
 import { formatDiff, formatRole } from "@/lib/format";
 import { LoadState } from "@/lib/types";
+
+type ScoreCardEntry = {
+  key: string;
+  label: string;
+  sublabel?: string;
+  score: PlayerAnalysisScore;
+};
+
+const SCORE_GROUP_FALLBACK: Record<string, ScoreGroup> = {
+  objective_setup_score: "performance",
+  lead_conversion_score: "performance",
+  stability_score: "performance",
+  teamfight_persistence_score: "performance",
+  death_cost_index: "risk_style",
+  throw_index: "risk_style",
+  gold_retention_score: "risk_style",
+  gambler_index: "risk_style",
+  death_acceleration_index: "risk_style"
+};
+
+function resolveScoreGroup(entry: ScoreCardEntry): ScoreGroup {
+  return entry.score.group ?? SCORE_GROUP_FALLBACK[entry.key] ?? "performance";
+}
+
+function buildScoreCards(scores: MatchPlayerAnalysisResponse["scores"]): ScoreCardEntry[] {
+  const cards: ScoreCardEntry[] = [
+    { key: "death_cost_index", label: "Death Cost", score: scores.death_cost_index },
+    { key: "throw_index", label: "Throw Index", score: scores.throw_index },
+    { key: "stability_score", label: "Stability", score: scores.stability_score },
+    { key: "objective_setup_score", label: "Objective", score: scores.objective_setup_score },
+    { key: "lead_conversion_score", label: "Lead Conversion", score: scores.lead_conversion_score }
+  ];
+
+  if (scores.gold_retention_score) {
+    cards.push({
+      key: "gold_retention_score",
+      label: "골드 리텐션",
+      score: scores.gold_retention_score,
+      sublabel: "킬 골드를 아이템으로 늦게 전환할수록 높음"
+    });
+  }
+  if (scores.gambler_index) {
+    cards.push({
+      key: "gambler_index",
+      label: "도박사 지수",
+      score: scores.gambler_index,
+      sublabel: "제압골 헌납·고립 데스·적진 침투 성향"
+    });
+  }
+  if (scores.teamfight_persistence_score) {
+    cards.push({
+      key: "teamfight_persistence_score",
+      label: "한타 지속력",
+      score: scores.teamfight_persistence_score,
+      sublabel: "한타에서 살아남으며 딜을 이어가는 능력"
+    });
+  }
+  if (scores.death_acceleration_index) {
+    cards.push({
+      key: "death_acceleration_index",
+      label: "데스 가속도",
+      score: scores.death_acceleration_index,
+      sublabel: "첫 데스 후 5분 내 연쇄 데스"
+    });
+  }
+
+  return cards;
+}
 
 export default function MatchReviewPage() {
   return (
@@ -98,6 +168,13 @@ function MatchReviewPageInner() {
   const latestFrame = timeline?.frames[timeline.frames.length - 1];
   const winCurve = timeline?.win_curve ?? [];
 
+  const scoreCards = playerAnalysis ? buildScoreCards(playerAnalysis.scores) : [];
+  const performanceCards = scoreCards.filter((entry) => resolveScoreGroup(entry) === "performance");
+  const riskStyleCards = scoreCards.filter((entry) => resolveScoreGroup(entry) === "risk_style");
+  const statements = playerAnalysis?.statements ?? [];
+  const replayQuestions = statements.filter((statement) => statement.kind === "replay_question");
+  const hasLimitation = statements.some((statement) => statement.kind === "limitation");
+
   return (
     <main className="app-shell">
       <div className="page-toolbar">
@@ -138,41 +215,49 @@ function MatchReviewPageInner() {
                 </div>
               </div>
 
-              <div className="score-grid">
-                <ScoreCard label="Death Cost" score={playerAnalysis.scores.death_cost_index} />
-                <ScoreCard label="Throw Index" score={playerAnalysis.scores.throw_index} />
-                <ScoreCard label="Stability" score={playerAnalysis.scores.stability_score} />
-                <ScoreCard label="Objective" score={playerAnalysis.scores.objective_setup_score} />
-                <ScoreCard label="Lead Conversion" score={playerAnalysis.scores.lead_conversion_score} />
-                {playerAnalysis.scores.gold_retention_score && (
-                  <ScoreCard
-                    label="골드 리텐션"
-                    score={playerAnalysis.scores.gold_retention_score}
-                    sublabel="킬 골드를 아이템으로 늦게 전환할수록 높음"
-                  />
-                )}
-                {playerAnalysis.scores.gambler_index && (
-                  <ScoreCard
-                    label="도박사 지수"
-                    score={playerAnalysis.scores.gambler_index}
-                    sublabel="제압골 헌납·고립 데스·적진 침투 성향"
-                  />
-                )}
-                {playerAnalysis.scores.teamfight_persistence_score && (
-                  <ScoreCard
-                    label="한타 지속력"
-                    score={playerAnalysis.scores.teamfight_persistence_score}
-                    sublabel="한타에서 살아남으며 딜을 이어가는 능력"
-                  />
-                )}
-                {playerAnalysis.scores.death_acceleration_index && (
-                  <ScoreCard
-                    label="데스 가속도"
-                    score={playerAnalysis.scores.death_acceleration_index}
-                    sublabel="첫 데스 후 5분 내 연쇄 데스"
-                  />
-                )}
-              </div>
+              {performanceCards.length > 0 && (
+                <div className="score-group">
+                  <div className="score-group-head">
+                    <h3>퍼포먼스 지표</h3>
+                    <span className="score-group-note">높을수록 좋음</span>
+                  </div>
+                  <div className="score-grid">
+                    {performanceCards.map((entry) => (
+                      <ScoreCard
+                        key={entry.key}
+                        label={entry.label}
+                        score={entry.score}
+                        sublabel={entry.sublabel}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {riskStyleCards.length > 0 && (
+                <div className="score-group">
+                  <div className="score-group-head">
+                    <h3>위험·스타일 신호</h3>
+                    <span className="score-group-note">높을수록 강한 경향 · 능력 점수가 아닙니다</span>
+                  </div>
+                  <div className="score-grid">
+                    {riskStyleCards.map((entry) => (
+                      <ScoreCard
+                        key={entry.key}
+                        label={entry.label}
+                        score={entry.score}
+                        sublabel={entry.sublabel}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {hasLimitation && (
+                <p className="score-limitation-note">
+                  일부 판정은 1분 단위 데이터 근사입니다 · 자세한 한계는 AI 리포트에서 확인
+                </p>
+              )}
 
               {latestFrame && (
                 <div className="timeline-summary">
@@ -186,7 +271,7 @@ function MatchReviewPageInner() {
 
               {winCurve.length >= 2 && (
                 <div className="win-curve-section">
-                  <h3>승률 흐름</h3>
+                  <h3>우세도 흐름</h3>
                   <WinCurveChart points={winCurve} team={playerAnalysis.player.team} />
                 </div>
               )}
@@ -194,6 +279,20 @@ function MatchReviewPageInner() {
               {turningPoints.length > 0 && <TurningPoints points={turningPoints} />}
 
               <EvidencePanel assets={reviewAssets} evidence={playerAnalysis.evidence} />
+
+              {replayQuestions.length > 0 && (
+                <div className="replay-question-section">
+                  <h3>복기 질문</h3>
+                  <ul className="replay-question-list">
+                    {replayQuestions.map((statement, index) => (
+                      <li key={`replay-question-${index}`}>
+                        <HelpCircle size={14} aria-hidden="true" />
+                        <span>{statement.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </aside>

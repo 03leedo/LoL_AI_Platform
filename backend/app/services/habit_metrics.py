@@ -138,7 +138,7 @@ def _gold_retention(
                     description=(
                         f"Between minute {start} and {end} the player held {RICH_GOLD_THRESHOLD}+ gold "
                         f"(peaking around {peak_gold}) without converting it into items. "
-                        "Unspent gold delays the snowball an item power spike would start."
+                        "Item conversion was delayed through this stretch."
                     ),
                 )
             )
@@ -155,7 +155,7 @@ def _gold_retention(
                     title="Died carrying a full wallet",
                     description=(
                         f"About {gold_at_death} gold was still unspent at the time of this death "
-                        "(nearest minute frame). Recalling earlier would have banked the lead."
+                        "(nearest minute frame)."
                     ),
                 )
             )
@@ -258,8 +258,7 @@ def _gambler_index(
                     kind="gambler",
                     title="Shutdown gold was conceded",
                     description=(
-                        f"This death handed the enemy about {shutdown} bonus shutdown gold, "
-                        "cashing out the risk that had been building on the player's streak."
+                        f"This death handed the enemy about {shutdown} bonus shutdown gold."
                     ),
                 )
             )
@@ -302,8 +301,7 @@ def _gambler_index(
                 kind="gambler",
                 title="Aggressive kills deep in enemy territory",
                 description=(
-                    f"{deep_kills} kill(s) happened deep inside the enemy half. "
-                    "High-risk positioning is paying off when these outnumber deep deaths."
+                    f"{deep_kills} kill(s) happened deep inside the enemy half."
                 ),
             )
         )
@@ -648,7 +646,7 @@ def _death_acceleration(my_deaths: list[dict[str, Any]]) -> tuple[dict[str, Any]
                 title="Deaths snowballed after the first fall",
                 description=(
                     f"{len(chain)} deaths landed within rolling 5-minute gaps (minutes {minutes}). "
-                    "Back-to-back deaths usually mean re-entering a fight before the map reset."
+                    "Only the timing pattern is observed here; what led to each re-entry needs replay review."
                 ),
                 confidence="high",
             )

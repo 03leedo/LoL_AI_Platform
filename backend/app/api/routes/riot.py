@@ -37,6 +37,7 @@ from app.schemas.riot import (
     SummonerMatchHistoryResponse,
     TimelineFrameFeatureResponse,
 )
+from app.services.analysis_semantics import apply_analysis_semantics
 from app.services.custom_metrics import METRIC_VERSION, PlayerAnalysisError, analyze_player_match
 from app.services.evidence_contexts import attach_evidence_contexts, build_review_assets
 from app.services.habit_metrics import merge_habit_metrics
@@ -381,6 +382,7 @@ async def get_match_review(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     analysis = merge_habit_metrics(analysis=analysis, match=match, timeline=timeline, features=features)
+    analysis = apply_analysis_semantics(analysis)
     analysis = attach_evidence_contexts(
         analysis=analysis,
         match=match,
@@ -459,6 +461,7 @@ async def get_match_player_analysis(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     analysis = merge_habit_metrics(analysis=analysis, match=match, timeline=timeline, features=features)
+    analysis = apply_analysis_semantics(analysis)
     analysis = attach_evidence_contexts(
         analysis=analysis,
         match=match,

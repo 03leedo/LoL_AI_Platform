@@ -22,6 +22,7 @@ from app.repositories.matches import (
     replace_timeline_features,
     upsert_player_skill_score,
 )
+from app.services.analysis_semantics import apply_analysis_semantics
 from app.services.custom_metrics import METRIC_VERSION, PlayerAnalysisError, analyze_player_match
 from app.services.habit_metrics import merge_habit_metrics
 from app.services.key_events import extract_key_events
@@ -126,6 +127,7 @@ async def ingest_single_match(
         return
 
     analysis = merge_habit_metrics(analysis=analysis, match=match, timeline=timeline, features=features)
+    analysis = apply_analysis_semantics(analysis)
     key_events = extract_key_events(match=match, timeline=timeline, puuid=puuid)
 
     await upsert_player_skill_score(db=db, analysis=analysis)

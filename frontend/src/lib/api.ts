@@ -105,10 +105,13 @@ export type ScoreConfidence = "low" | "medium" | "high";
 
 export type ScoreDirection = "higher_is_better" | "higher_is_worse";
 
+export type ScoreGroup = "performance" | "risk_style";
+
 export type PlayerAnalysisScore = {
   value: number | null;
   confidence: ScoreConfidence;
   direction: ScoreDirection;
+  group?: ScoreGroup;
 };
 
 export type TeamSide = "blue" | "red" | "neutral";
@@ -188,12 +191,22 @@ export type EvidenceContext = {
 };
 
 export type PlayerAnalysisEvidence = {
+  id?: string;
   minute: number;
   type: string;
   title: string;
   description: string;
   confidence: ScoreConfidence;
   context: EvidenceContext | null;
+};
+
+export type AnalysisStatementKind = "observation" | "hypothesis" | "limitation" | "replay_question";
+
+export type AnalysisStatement = {
+  kind: AnalysisStatementKind;
+  text: string;
+  evidence_ids: string[];
+  confidence: ScoreConfidence;
 };
 
 export type MatchPlayerAnalysisResponse = {
@@ -217,6 +230,7 @@ export type MatchPlayerAnalysisResponse = {
     death_acceleration_index?: PlayerAnalysisScore | null;
   };
   evidence: PlayerAnalysisEvidence[];
+  statements?: AnalysisStatement[];
 };
 
 export type MatchKeyEventParticipant = {
@@ -370,6 +384,8 @@ export type PlayerReportResponse = {
   recommendations: string[];
   patterns: PlayerReportPattern[];
   autopsy: PlayerReportAutopsy | null;
+  limitations?: string[];
+  replay_questions?: string[];
 };
 
 export async function getHealth(): Promise<SystemHealth> {

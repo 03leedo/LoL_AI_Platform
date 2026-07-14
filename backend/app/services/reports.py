@@ -21,6 +21,7 @@ from app.services.custom_metrics import METRIC_VERSION
 from app.services.llm_provider import LlmProviderError, generate_json, provider_available
 from app.services.patterns import (
     RECOMMENDATIONS_BY_KEY,
+    REPLAY_QUESTIONS_BY_KEY,
     detect_patterns,
     summarize_death_autopsy,
 )
@@ -29,8 +30,13 @@ from app.services.scorecard import build_scorecard
 
 logger = logging.getLogger(__name__)
 
-REPORT_VERSION = 1
+REPORT_VERSION = 2  # v2: limitations + replay_questions (Phase 1)
 MIN_GAMES_FOR_REPORT = 3
+
+STANDARD_REPORT_LIMITATIONS = [
+    "모든 수치는 Riot API 데이터 기반 관측이며, 장면의 의도나 팀 상황은 리플레이 확인 전에는 판정하지 않습니다.",
+    "타임라인 위치·골드는 1분 단위 근사입니다(±60초).",
+]
 
 ROLE_LABELS = {
     "TOP": "탑",
@@ -72,6 +78,8 @@ async def get_or_create_report(
             "strengths": [],
             "weaknesses": [],
             "recommendations": [],
+            "limitations": [],
+            "replay_questions": [],
             "patterns": [],
             "autopsy": None,
         }
@@ -154,10 +162,25 @@ def build_deterministic_report(
         summary_parts.append(f"개선이 가장 시급한 부분은 '{weaknesses[0]['title']}'입니다.")
 
     recommendations: list[str] = []
+    replay_questions: list[str] = []
     for pattern in weaknesses[:4]:
         advice = RECOMMENDATIONS_BY_KEY.get(pattern["key"])
         if advice:
             recommendations.append(advice)
+        question = REPLAY_QUESTIONS_BY_KEY.get(pattern["key"])
+        if question and len(replay_questions) < 3:
+            replay_questions.append(question)
+
+    limitations = list(STANDARD_REPORT_LIMITATIONS)
+    limitations.append(
+        f"표본 {games}경기 기준입니다. 이 리포트의 평균 점수는 단순 평균이라 표본이 적을수록 신뢰도가 낮습니다"
+        " (포지션 적합도만 표본 보정이 적용됩니다)."
+    )
+    if any(p["key"] == "objective_linked_deaths" for p in patterns):
+        limitations.append(
+            "'데스 후 오브젝트 획득 동반률'은 전체 데스를 분모로 쓴 근사치입니다. "
+            "오브젝트 생성 여부를 고려한 분모 교정은 에피소드 엔진(Phase 3)에서 적용됩니다."
+        )
 
     return {
         "puuid": puuid,
@@ -169,6 +192,8 @@ def build_deterministic_report(
         "strengths": [f"{p['title']} ({p['stat']})" for p in strengths[:3]],
         "weaknesses": [f"{p['title']} ({p['stat']})" for p in weaknesses[:3]],
         "recommendations": recommendations,
+        "limitations": limitations,
+        "replay_questions": replay_questions,
         "patterns": patterns,
         "autopsy": autopsy,
     }

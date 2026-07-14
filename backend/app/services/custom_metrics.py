@@ -326,7 +326,7 @@ def _lead_conversion_score(
             _evidence(
                 minute=int(risky_deaths[0].get("timestamp") or 0) // 60000,
                 kind="lead_conversion",
-                title="Deaths reduced lead conversion quality",
+                title="Deaths occurred during the lead conversion window",
                 description="One or more player deaths occurred while the team was trying to convert an early lead.",
             )
         )
