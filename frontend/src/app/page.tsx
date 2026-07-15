@@ -21,7 +21,11 @@ export default function Home() {
     }
 
     setIsNavigating(true);
-    router.push(`/summoner/${encodeURIComponent(normalizedGameName)}-${encodeURIComponent(normalizedTagLine)}`);
+    const params = new URLSearchParams({
+      gameName: normalizedGameName,
+      tagLine: normalizedTagLine
+    });
+    router.push(`/summoner?${params.toString()}`);
   }
 
   return (

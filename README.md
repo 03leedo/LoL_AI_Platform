@@ -75,6 +75,19 @@ backend/.venv/bin/python -m pytest   # config in pytest.ini (pythonpath=backend)
 - `GET /api/v1/riot/summoner/{game_name}/{tag_line}/matches?count=10`
 - `GET /api/v1/riot/matches/{match_id}`
 
+## GitHub Pages deployment
+
+The frontend is exported as a static Next.js site and deployed from
+`.github/workflows/pages.yml`.
+
+1. In GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions**.
+2. In **Settings → Secrets and variables → Actions → Variables**, add
+   `NEXT_PUBLIC_API_BASE_URL` with the public backend URL.
+3. Push to `main`, or run the **Deploy frontend to GitHub Pages** workflow
+   manually.
+
+The Pages URL is `https://03leedo.github.io/LoL_AI_Platform/`.
+
 ## Documentation
 
 - [docs/ai/IMPLEMENTATION_STATUS.md](docs/ai/IMPLEMENTATION_STATUS.md) — live
