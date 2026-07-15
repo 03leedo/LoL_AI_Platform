@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `3 — Episode Engine` **core COMPLETE** (domain-reviewed; episode persistence + full death-context consolidation deferred) → next is `4 — Individual Profile v1` (cohort percentiles, recency weighting)
-- State: `PHASE_4_READY`
+- Phase: `4 — Individual Profile v1` **COMPLETE** (domain-reviewed, findings applied) → next is `5 — Representative / Best / Deviation Matches`
+- State: `PHASE_5_READY`
 - Last updated: `2026-07-14`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -24,7 +24,7 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 | 1 Evidence-safe semantics | ✅ done (2026-07-14) | `services/analysis_semantics.py`: deterministic evidence IDs, observation/limitation/replay_question statements, performance vs risk_style grouping; 우세도 rename + "최근 강세" copy; causal-wording pass enforced by `tests/test_wording_lint.py`; domain reviewer findings applied |
 | 2 Versioned data foundation | 🟡 mostly done | + queue_id filter on aggregation reads (2026-07-14, default ranked solo 420); still missing: completeness flags |
 | 3 Episode engine | ✅ core done (2026-07-14) | `services/episodes.py` (EPISODE_VERSION 1): time+distance fight clustering, elite availability windows, one-objective↔one-death attribution (METRIC_VERSION 3), objective-analyzable denominator in patterns/autopsy; deferred: episode persistence, consolidated death-context builder, HORDE/Atakhan windows |
-| 4 Individual profile v1 | 🟡 partial | `scorecard.py` (6 abilities) + `role_analyzer.py` (shrinkage); no cohort percentiles, no recency weighting |
+| 4 Individual profile v1 | ✅ done (2026-07-14) | `services/profiles.py` (PROFILE_VERSION 1): 5 role-filtered dimensions, recency weighting exp(-days/14), shrinkage n_eff/(n_eff+8) toward cohort mean, local-sample cohort percentiles (explicitly labeled non-tier), submetrics + evidence match ids; `GET /summoner/../profile`; remake filter on aggregation reads |
 | 5 Representative/best/deviation matches | ❌ | not started |
 | 6 Evidence-grounded AI agent | 🟡 partial | `reports.py` + `llm_provider.py` (Gemini via OpenAI-compat); patterns rule-computed, LLM prose-only; missing evidence-ID enforcement and tool-based access |
 | 7 Advantage model | 🟡 v0 | rule-based logistic curve (`win_probability.py`); UI still says "승률" — rename in Phase 1; ML + calibration pending |
@@ -104,7 +104,30 @@ Additional outputs: win curve (`win_probability.py` — rename 승률→우세�
 
 ### Outcome
 
-Phase 2 gap + Phase 3 episode engine: **COMPLETE** (2026-07-14, domain-reviewed twice).
+Phase 4 — Individual Profile v1: **COMPLETE** (2026-07-14, domain-reviewed).
+
+Delivered:
+- `services/profiles.py` (PROFILE_VERSION 1, constants centralized): dimensions early_growth /
+  resource_conversion / **risk_management** (renamed from risk_exposure per review — inverted risk
+  composite, `inverted_from` recorded in persisted evidence) / objective_readiness / fight_contribution.
+  Recency weighting exp(-days/14); shrinkage reliability = n_eff/(n_eff+8) with n_eff=(Σw)²/Σw² so
+  stale games don't inflate confidence; baseline = cohort mean only when cohort ≥30 valid values.
+- Local-sample cohort from stored `match_participants` (`fetch_cohort_participant_stats`) —
+  labeled "티어 미구분 임시 기준"; dimension-level percentile only where the identical formula runs
+  on cohort rows (early_growth, resource_conversion); mean-vs-single-game caveat disclosed in
+  comparison_group. Remake filter (≥300s) on both player-record and cohort reads.
+- Review H1 fixed: player records now carry damage/gold/duration so resource_conversion works on
+  real data (fixture aligned with the repository contract).
+- Route `GET /summoner/{name}/{tag}/profile?window&queue&role` (queue_label derived from queue);
+  aggregates persisted as `profile.*` rows with computed_at_ms for regenerability.
+- Frontend PlayerProfilePanel: role chips, percentile bars, shrinkage note (표본 보정 전 N점),
+  submetric drill-down, "고정 실력이 아님/로컬 표본" disclaimers.
+
+Preserved: all existing metric formulas; scorecard/role-fit endpoints unchanged.
+
+---
+
+Previous package — Phase 2 gap + Phase 3 episode engine: **COMPLETE** (2026-07-14, domain-reviewed twice).
 
 Delivered:
 - `services/episodes.py` (EPISODE_VERSION 1, thresholds centralized): fight clustering by ≤20s AND
@@ -192,6 +215,8 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-14 | frontend tsc --noEmit | pass | Phase 1 UI regroup/rename |
 | 2026-07-14 | `pytest` | 129 passed | + episodes (clustering/availability/attribution/dedup regression) |
 | 2026-07-14 | frontend tsc --noEmit | pass | autopsy chip + queue copy |
+| 2026-07-14 | `pytest` | 138 passed | + profiles (role filter, shrinkage, recency, cohort fallbacks) |
+| 2026-07-14 | frontend tsc --noEmit | pass | PlayerProfilePanel |
 
 ## Changed Files in Current Phase
 
@@ -210,12 +235,17 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
   matches are re-ingested (mixed denominator semantics across data ages).
 - Objective→death attribution is time-only (no spatial link to the pit).
 - Episode `confidence` (medium on missing positions) computed but not yet surfaced in UI.
-- **Shrinkage inconsistency**: role-fit shrinks toward 50 but scorecard/pattern averages do not —
-  unify in Phase 4.
+- Profile cohort = whoever appears in locally ingested matches (biased toward requesting users'
+  MMR neighborhoods, tier unknown — labeled); percentile compares a multi-game mean against a
+  single-game distribution (disclosed); risk/objective/fight dimensions have submetric percentiles
+  only; challenges keys can be absent on older matches → per-dimension insufficient_data.
+- **Shrinkage inconsistency**: profiles use n_eff/(n_eff+8); legacy scorecard/pattern averages
+  remain plain means (their limitation copy says so) — full unification deferred.
 - Statement layer language mix (English evidence + Korean limitations) — cosmetic, deferred.
 - Gemini thinking models may consume output budget on reasoning; MAX_OUTPUT_TOKENS raised to 4000, sanitizer falls back to rules on truncation.
 
 ## Next Action
 
-Phase 4 — Individual Profile v1: cohort percentiles (queue/role/tier/patch), recency weighting,
-sample-size shrinkage unified across surfaces, submetric+evidence drill-down per profile dimension.
+Phase 5 — Representative / Best / Deviation matches: standardized per-match feature vectors within
+the profile role/cohort, distance-based selection with recorded selection reasons and versions,
+exclusion rules (remakes/off-role/missing data), evidence windows per selection.

@@ -344,6 +344,43 @@ class RankAnalysisResponse(BaseModel):
     caution: str | None = None
 
 
+class ProfileSubmetricResponse(BaseModel):
+    key: str
+    label: str
+    value: float | None = None
+    percentile: int | None = None
+    lower_is_better: bool = False
+
+
+class ProfileDimensionResponse(BaseModel):
+    key: str
+    label: str
+    score: int | None = None
+    raw_score: int | None = None
+    percentile: int | None = None
+    sample_size: int = 0
+    effective_sample_size: float = 0.0
+    confidence: Literal["low", "medium", "high"] = "low"
+    comparison_group: str
+    direction_group: str = "performance"
+    submetrics: list[ProfileSubmetricResponse] = []
+    evidence_match_ids: list[str] = []
+    insufficient_data: bool = False
+
+
+class PlayerProfileResponse(BaseModel):
+    puuid: str
+    role: str
+    games: int
+    window: str
+    profile_version: int
+    comparison_group: str
+    computed_at_ms: int | None = None
+    insufficient_data: bool
+    available_roles: list[str] = []
+    dimensions: list[ProfileDimensionResponse] = []
+
+
 class ReportPatternResponse(BaseModel):
     key: str
     severity: Literal["positive", "warn", "critical"]

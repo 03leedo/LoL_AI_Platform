@@ -10,6 +10,19 @@ from app.models.match import MatchEvent, MatchParticipant, RiotMatch
 
 MOMENT_WINDOW_MS = 15_000
 
+# Remakes / abnormally short games distort per-game aggregates (SPEC §10.3
+# exclusions). NULL durations (legacy rows) are kept.
+MIN_VALID_GAME_DURATION_S = 300
+
+
+def _not_a_remake():
+    from sqlalchemy import or_
+
+    return or_(
+        RiotMatch.game_duration.is_(None),
+        RiotMatch.game_duration >= MIN_VALID_GAME_DURATION_S,
+    )
+
 ELITE_MOMENT_TYPES = {"dragon", "herald", "baron", "voidgrub", "atakhan"}
 
 # Maps metric keys to the evidence `type` emitted by custom_metrics / habit_metrics.
@@ -137,9 +150,10 @@ async def fetch_player_match_records(
     solo/flex/normal queues from being silently mixed (Phase 2 gap).
     """
     stmt = (
-        select(MatchParticipant, RiotMatch.game_creation, RiotMatch.queue_id)
+        select(MatchParticipant, RiotMatch.game_creation, RiotMatch.queue_id, RiotMatch.game_duration)
         .join(RiotMatch, RiotMatch.match_id == MatchParticipant.match_id)
         .where(MatchParticipant.puuid == puuid)
+        .where(_not_a_remake())
         .order_by(RiotMatch.game_creation.desc().nulls_last())
         .limit(limit)
     )
@@ -149,18 +163,22 @@ async def fetch_player_match_records(
 
     records: list[dict[str, Any]] = []
     by_match: dict[str, dict[str, Any]] = {}
-    for participant, game_creation, queue_id in rows:
+    for participant, game_creation, queue_id, game_duration in rows:
         raw = participant.raw_json or {}
         challenges = raw.get("challenges")
         record = {
             "match_id": participant.match_id,
             "game_creation": game_creation,
             "queue_id": queue_id,
+            "game_duration": game_duration,
             "role": participant.team_position or participant.individual_position,
             "win": participant.win,
             "kills": participant.kills,
             "deaths": participant.deaths,
             "assists": participant.assists,
+            "damage_to_champions": participant.damage_to_champions,
+            "gold_earned": participant.gold_earned,
+            "vision_score": participant.vision_score,
             "champion_name": participant.champion_name,
             "challenges": challenges if isinstance(challenges, dict) else {},
             "scores": {},
@@ -326,6 +344,52 @@ async def save_report(
         )
     )
     await db.commit()
+
+
+async def fetch_cohort_participant_stats(
+    db: AsyncSession,
+    role: str,
+    queue_ids: list[int] | None = None,
+    exclude_puuid: str | None = None,
+    limit: int = 2000,
+) -> list[dict[str, Any]]:
+    """Local-sample cohort rows for percentile context (Phase 4).
+
+    Every ingested match contributes ten role-tagged participants, so the
+    local DB doubles as a small comparison population. Tier is NOT known for
+    arbitrary participants — callers must label this cohort as a local sample,
+    not a tier cohort.
+    """
+    stmt = (
+        select(MatchParticipant, RiotMatch.game_duration)
+        .join(RiotMatch, RiotMatch.match_id == MatchParticipant.match_id)
+        .where(MatchParticipant.team_position == role)
+        .where(_not_a_remake())
+        .order_by(RiotMatch.game_creation.desc().nulls_last())
+        .limit(limit)
+    )
+    if queue_ids:
+        stmt = stmt.where(RiotMatch.queue_id.in_(queue_ids))
+    if exclude_puuid:
+        stmt = stmt.where(MatchParticipant.puuid != exclude_puuid)
+
+    rows: list[dict[str, Any]] = []
+    for participant, game_duration in (await db.execute(stmt)).all():
+        raw = participant.raw_json or {}
+        challenges = raw.get("challenges")
+        rows.append(
+            {
+                "kills": participant.kills,
+                "deaths": participant.deaths,
+                "assists": participant.assists,
+                "damage_to_champions": participant.damage_to_champions,
+                "gold_earned": participant.gold_earned,
+                "vision_score": participant.vision_score,
+                "game_duration": game_duration,
+                "challenges": challenges if isinstance(challenges, dict) else {},
+            }
+        )
+    return rows
 
 
 async def replace_aggregate_scores(

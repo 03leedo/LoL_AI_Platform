@@ -1785,6 +1785,168 @@ button:disabled {
   line-height: 1.45;
 }
 
+.profile-panel-body {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-role-chips {
+  flex-wrap: wrap;
+}
+
+.profile-meta {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.profile-meta-sub {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.profile-dimension-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.profile-dimension-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.profile-dim-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.profile-dim-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.profile-dim-score {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 0;
+}
+
+.profile-dim-score strong {
+  color: var(--blue);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.profile-dim-score span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.profile-dim-score .is-na {
+  font-size: 0.8rem;
+}
+
+.profile-raw-note,
+.profile-percentile-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.profile-percentile {
+  display: grid;
+  gap: 5px;
+}
+
+.profile-percentile-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.profile-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: white;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.profile-detail-toggle[aria-expanded="true"] {
+  border-color: rgba(40, 105, 216, 0.45);
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.profile-submetric-list {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.profile-submetric-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.profile-submetric-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.profile-submetric-note {
+  font-size: 0.7rem;
+}
+
+.profile-submetric-data {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.profile-submetric-value {
+  font-weight: 900;
+}
+
+.profile-submetric-pct {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.profile-evidence-footer {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .empty-state,
 .loading-state {
   display: grid;

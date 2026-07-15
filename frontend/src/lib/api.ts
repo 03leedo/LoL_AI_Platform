@@ -390,6 +390,50 @@ export type PlayerReportResponse = {
   replay_questions?: string[];
 };
 
+export type ProfileRole = "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY" | "UNKNOWN";
+
+export type ProfileDimensionKey =
+  | "early_growth"
+  | "resource_conversion"
+  | "risk_management"
+  | "objective_readiness"
+  | "fight_contribution";
+
+export type ProfileSubmetric = {
+  key: string;
+  label: string;
+  value: number | null;
+  percentile: number | null;
+  lower_is_better: boolean;
+};
+
+export type ProfileDimension = {
+  key: ProfileDimensionKey;
+  label: string;
+  score: number | null;
+  raw_score: number | null;
+  percentile: number | null;
+  sample_size: number;
+  confidence: ScoreConfidence;
+  comparison_group: string;
+  direction_group: string;
+  submetrics: ProfileSubmetric[];
+  evidence_match_ids: string[];
+  insufficient_data: boolean;
+};
+
+export type PlayerProfileResponse = {
+  puuid: string;
+  role: ProfileRole;
+  games: number;
+  window: string;
+  profile_version: number;
+  comparison_group: string;
+  insufficient_data: boolean;
+  available_roles: string[];
+  dimensions: ProfileDimension[];
+};
+
 export async function getHealth(): Promise<SystemHealth> {
   const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
     cache: "no-store"
@@ -533,6 +577,27 @@ export async function getPlayerReport(
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Player report generation failed"));
+  }
+
+  return response.json();
+}
+
+export async function getPlayerProfile(
+  gameName: string,
+  tagLine: string,
+  window = 20,
+  role?: string
+): Promise<PlayerProfileResponse> {
+  const roleParam = role === undefined ? "" : `&role=${encodeURIComponent(role)}`;
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/profile?window=${window}${roleParam}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Performance profile lookup failed"));
   }
 
   return response.json();

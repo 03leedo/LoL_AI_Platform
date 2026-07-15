@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MatchCard } from "@/components/MatchCard";
+import { PlayerProfilePanel } from "@/components/PlayerProfilePanel";
 import { PlayerReportPanel } from "@/components/PlayerReportPanel";
 import { RankAnalysisPanel } from "@/components/RankAnalysisPanel";
 import { EmptyState, LoadingState } from "@/components/StatusViews";
@@ -198,6 +199,11 @@ export default function SummonerPage() {
             />
             <RankAnalysisPanel
               key={`rank-${riotId}`}
+              gameName={parsedRiotId.gameName}
+              tagLine={parsedRiotId.tagLine}
+            />
+            <PlayerProfilePanel
+              key={`profile-${riotId}`}
               gameName={parsedRiotId.gameName}
               tagLine={parsedRiotId.tagLine}
             />

@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.analysis import IngestJob
 from app.repositories.analysis import (
+    fetch_cohort_participant_stats,
     fetch_player_match_records,
     replace_aggregate_scores,
     replace_match_metric_scores,
@@ -28,6 +29,7 @@ from app.schemas.riot import (
     MatchReviewResponse,
     MatchSummaryResponse,
     MatchTimelineAnalysisResponse,
+    PlayerProfileResponse,
     PlayerReportResponse,
     RankAnalysisResponse,
     RoleFitResponse,
@@ -44,7 +46,8 @@ from app.services.habit_metrics import merge_habit_metrics
 from app.services.heatmaps import build_summoner_heatmap
 from app.services.ingest import create_ingest_job, job_to_dict, start_ingest_task
 from app.services.key_events import extract_key_events
-from app.services.role_analyzer import build_role_analysis, role_analysis_to_aggregate_rows
+from app.services.profiles import build_player_profile, dominant_role, profile_to_aggregate_rows
+from app.services.role_analyzer import ROLES, build_role_analysis, role_analysis_to_aggregate_rows
 from app.services.scorecard import build_scorecard, scorecard_to_aggregate_rows
 from app.services.turning_points import detect_turning_points
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
@@ -291,6 +294,93 @@ async def get_rank_analysis(
         roles=[RoleFitResponse(**role) for role in role_analysis["roles"]],
         recommended=role_analysis["recommended"],
         caution=role_analysis["caution"],
+    )
+
+
+@router.get("/summoner/{game_name}/{tag_line}/profile", response_model=PlayerProfileResponse)
+async def get_player_profile(
+    game_name: str,
+    tag_line: str,
+    window: int = Query(default=20, ge=5, le=30),
+    queue: int = Query(default=420, ge=0, description="Queue id filter; 0 disables"),
+    role: str | None = Query(default=None, description="TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY; default = dominant role"),
+    db: AsyncSession = Depends(get_db),
+) -> PlayerProfileResponse:
+    import time
+
+    client = RiotClient()
+
+    try:
+        account = await client.get_account_by_riot_id(game_name, tag_line)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    puuid = account["puuid"]
+    records = await fetch_player_match_records(
+        db=db,
+        puuid=puuid,
+        limit=window,
+        queue_ids=[queue] if queue else None,
+    )
+
+    available_roles = sorted(
+        {str(record.get("role") or "").upper() for record in records} & set(ROLES)
+    )
+
+    target_role = (role or "").upper() or (dominant_role(records) or "")
+    if role and target_role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Unknown role '{role}'")
+
+    window_key = f"recent{window}"
+    if not target_role:
+        return PlayerProfileResponse(
+            puuid=puuid,
+            role="UNKNOWN",
+            games=0,
+            window=window_key,
+            profile_version=1,
+            comparison_group="분석할 경기가 없습니다 — 랭크 분석에서 수집을 먼저 실행하세요.",
+            insufficient_data=True,
+            available_roles=available_roles,
+            dimensions=[],
+        )
+
+    cohort_rows = await fetch_cohort_participant_stats(
+        db=db,
+        role=target_role,
+        queue_ids=[queue] if queue else None,
+        exclude_puuid=puuid,
+    )
+
+    queue_label = {420: "솔로랭크", 440: "자유랭크", 0: "전체 큐(혼합)"}.get(queue, f"큐 {queue}")
+    profile = build_player_profile(
+        records=records,
+        cohort_rows=cohort_rows,
+        role=target_role,
+        now_ms=int(time.time() * 1000),
+        queue_label=queue_label,
+    )
+
+    try:
+        await replace_aggregate_scores(
+            db=db,
+            puuid=puuid,
+            window=f"profile:{target_role}:{window_key}",
+            rows=profile_to_aggregate_rows(profile),
+            metric_version=METRIC_VERSION,
+        )
+    except Exception as exc:  # pragma: no cover - profile should still be returned
+        logger.warning("Profile persistence skipped for %s: %s", puuid, exc)
+        try:
+            await db.rollback()
+        except Exception:  # pragma: no cover
+            pass
+
+    return PlayerProfileResponse(
+        puuid=puuid,
+        window=window_key,
+        available_roles=available_roles,
+        **profile,
     )
 
 
