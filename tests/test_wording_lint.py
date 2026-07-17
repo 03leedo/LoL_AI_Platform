@@ -141,10 +141,20 @@ class WordingLintTest(unittest.TestCase):
             custom_metrics,
             habit_metrics,
             patterns,
+            profiles,
             reports,
+            representative_matches,
         )
 
-        for module in (analysis_semantics, custom_metrics, habit_metrics, patterns, reports):
+        for module in (
+            analysis_semantics,
+            custom_metrics,
+            habit_metrics,
+            patterns,
+            profiles,
+            reports,
+            representative_matches,
+        ):
             self.assert_clean([inspect.getsource(module)])
 
 

@@ -1947,6 +1947,118 @@ button:disabled {
   font-weight: 800;
 }
 
+.selection-panel-body {
+  display: grid;
+  gap: 14px;
+}
+
+.selection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.selection-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.selection-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.selection-kind-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.selection-kind-badge.is-representative {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.selection-kind-badge.is-best {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.selection-kind-badge.is-deviation {
+  color: var(--gold);
+  background: rgba(199, 139, 36, 0.14);
+}
+
+.selection-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.selection-mainline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.selection-champion {
+  font-size: 1.05rem;
+}
+
+.selection-reason {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.selection-driver-list {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.selection-driver-row {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.selection-review-link {
+  width: fit-content;
+  margin-top: 2px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.selection-review-link:hover {
+  text-decoration: underline;
+}
+
+.selection-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .empty-state,
 .loading-state {
   display: grid;
@@ -2025,7 +2137,8 @@ button:disabled {
   .timeline-summary,
   .context-summary,
   .context-body,
-  .report-columns {
+  .report-columns,
+  .selection-grid {
     grid-template-columns: 1fr;
   }
 

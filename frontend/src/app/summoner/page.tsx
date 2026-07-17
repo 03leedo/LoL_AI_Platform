@@ -9,6 +9,7 @@ import { MatchCard } from "@/components/MatchCard";
 import { PlayerProfilePanel } from "@/components/PlayerProfilePanel";
 import { PlayerReportPanel } from "@/components/PlayerReportPanel";
 import { RankAnalysisPanel } from "@/components/RankAnalysisPanel";
+import { RepresentativeMatchesPanel } from "@/components/RepresentativeMatchesPanel";
 import { EmptyState, LoadingState } from "@/components/StatusViews";
 import { SummonerHeatmap } from "@/components/SummonerHeatmap";
 import {
@@ -190,7 +191,7 @@ function SummonerPageInner() {
           )}
         </section>
 
-        {lookupState === "success" && hasRiotId && (
+        {lookupState === "success" && hasRiotId && lookup && (
           <>
             <SummonerHeatmap
               key={`${gameName}-${tagLine}`}
@@ -206,6 +207,13 @@ function SummonerPageInner() {
               key={`profile-${gameName}-${tagLine}`}
               gameName={gameName}
               tagLine={tagLine}
+            />
+            <RepresentativeMatchesPanel
+              key={`selections-${gameName}-${tagLine}`}
+              gameName={gameName}
+              tagLine={tagLine}
+              puuid={lookup.account.puuid}
+              riotId={`${gameName}-${tagLine}`}
             />
             <PlayerReportPanel
               key={`report-${gameName}-${tagLine}`}

@@ -434,6 +434,46 @@ export type PlayerProfileResponse = {
   dimensions: ProfileDimension[];
 };
 
+export type MatchSelectionKind = "representative" | "best" | "deviation";
+
+export type MatchSelectionDriver = {
+  key: string;
+  label: string;
+  value: number;
+  profile_value: number;
+  diff: number;
+};
+
+export type MatchSelection = {
+  kind: MatchSelectionKind;
+  match_id: string;
+  champion_name: string | null;
+  win: boolean | null;
+  game_creation: number | null;
+  distance: number;
+  mean_value: number;
+  reason: string;
+  drivers: MatchSelectionDriver[];
+  vector: Record<string, number | null>;
+};
+
+export type MatchSelectionsResponse = {
+  puuid: string;
+  role: string;
+  window: string;
+  games_considered: number;
+  eligible_matches: number;
+  excluded_matches: number;
+  selection_version: number;
+  method: string;
+  computed_at_ms: number | null;
+  insufficient_data: boolean;
+  profile_vector: Record<string, number>;
+  representative: MatchSelection | null;
+  best: MatchSelection | null;
+  deviation: MatchSelection | null;
+};
+
 export async function getHealth(): Promise<SystemHealth> {
   const response = await fetch(`${API_BASE_URL}/api/v1/health`, {
     cache: "no-store"
@@ -598,6 +638,27 @@ export async function getPlayerProfile(
 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Performance profile lookup failed"));
+  }
+
+  return response.json();
+}
+
+export async function getRepresentativeMatches(
+  gameName: string,
+  tagLine: string,
+  window = 20,
+  role?: string
+): Promise<MatchSelectionsResponse> {
+  const roleParam = role === undefined ? "" : `&role=${encodeURIComponent(role)}`;
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/riot/summoner/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}/representative-matches?window=${window}${roleParam}`,
+    {
+      cache: "no-store"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Representative match selection failed"));
   }
 
   return response.json();

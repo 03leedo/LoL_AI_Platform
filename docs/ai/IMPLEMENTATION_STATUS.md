@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `4 — Individual Profile v1` **COMPLETE** (domain-reviewed, findings applied) → next is `5 — Representative / Best / Deviation Matches`
-- State: `PHASE_5_READY`
+- Phase: `5 — Representative / Best / Deviation Matches` **COMPLETE** (domain-reviewed, findings applied) → next is `6 — Evidence-grounded AI agent hardening` (tool-based access, evidence-ID enforcement in LLM output) or `7 — Advantage model` (snapshot dataset + calibration)
+- State: `PHASE_6_OR_7_READY`
 - Last updated: `2026-07-14`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -25,7 +25,7 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 | 2 Versioned data foundation | 🟡 mostly done | + queue_id filter on aggregation reads (2026-07-14, default ranked solo 420); still missing: completeness flags |
 | 3 Episode engine | ✅ core done (2026-07-14) | `services/episodes.py` (EPISODE_VERSION 1): time+distance fight clustering, elite availability windows, one-objective↔one-death attribution (METRIC_VERSION 3), objective-analyzable denominator in patterns/autopsy; deferred: episode persistence, consolidated death-context builder, HORDE/Atakhan windows |
 | 4 Individual profile v1 | ✅ done (2026-07-14) | `services/profiles.py` (PROFILE_VERSION 1): 5 role-filtered dimensions, recency weighting exp(-days/14), shrinkage n_eff/(n_eff+8) toward cohort mean, local-sample cohort percentiles (explicitly labeled non-tier), submetrics + evidence match ids; `GET /summoner/../profile`; remake filter on aggregation reads |
-| 5 Representative/best/deviation matches | ❌ | not started |
+| 5 Representative/best/deviation matches | ✅ done (2026-07-14) | `services/representative_matches.py` (SELECTION_VERSION 1, rms_distance_0_100_v1): reuses profile per-match formulas, unified deterministic tie-breaks, coverage-first best selection, selections persisted (report_type=selections); UI panel with review links |
 | 6 Evidence-grounded AI agent | 🟡 partial | `reports.py` + `llm_provider.py` (Gemini via OpenAI-compat); patterns rule-computed, LLM prose-only; missing evidence-ID enforcement and tool-based access |
 | 7 Advantage model | 🟡 v0 | rule-based logistic curve (`win_probability.py`); UI still says "승률" — rename in Phase 1; ML + calibration pending |
 | 8 Expected-performance models | ❌ | not started |
@@ -104,7 +104,31 @@ Additional outputs: win curve (`win_probability.py` — rename 승률→우세�
 
 ### Outcome
 
-Phase 4 — Individual Profile v1: **COMPLETE** (2026-07-14, domain-reviewed).
+Phase 5 — Representative / Best / Deviation matches: **COMPLETE** (2026-07-14, domain-reviewed).
+
+Delivered:
+- `services/profiles.py`: per-match dimension formulas extracted to module functions
+  (`per_match_dimension_values`) — verified behavior-identical; selections reuse them (no parallel math).
+- `services/representative_matches.py` (SELECTION_VERSION 1, method rms_distance_0_100_v1):
+  eligible = role records with ≥3 computable dimensions (excluded counted); profile vector =
+  recency-weighted mean over eligible matches (`profile_vector_basis` recorded — differs from the
+  Phase 4 profile which includes low-coverage matches); representative = min RMS distance,
+  deviation = max (reason wording: "가장 달랐던", never "최악"), best = coverage-first then highest
+  mean (partial-data matches cannot win on fewer dimensions; `dimensions_used` exposed);
+  unified deterministic tie-breaks (newer game, then ascending match_id).
+- Route `GET /summoner/{name}/{tag}/representative-matches`; selections persisted to
+  `analysis_reports` (report_type=selections) with reasons + versions.
+- Frontend RepresentativeMatchesPanel: three cards with kind badges, driver rows, review links;
+  deviation subtitle states it is not a "worst game" label.
+- Domain review findings applied: coverage-first best, tie-break unification + exact-tie test,
+  partial-dimension eligible test, method recorded on degenerate path, wording lint now covers
+  profiles + representative_matches sources, +.1f diff formatting.
+
+Preserved: profile outputs unchanged; all metric formulas untouched.
+
+---
+
+Previous package — Phase 4 — Individual Profile v1: **COMPLETE** (2026-07-14, domain-reviewed).
 
 Delivered:
 - `services/profiles.py` (PROFILE_VERSION 1, constants centralized): dimensions early_growth /
@@ -217,6 +241,8 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-14 | frontend tsc --noEmit | pass | autopsy chip + queue copy |
 | 2026-07-14 | `pytest` | 138 passed | + profiles (role filter, shrinkage, recency, cohort fallbacks) |
 | 2026-07-14 | frontend tsc --noEmit | pass | PlayerProfilePanel |
+| 2026-07-14 | `pytest` | 147 passed | + selections (determinism, ties, coverage, positive deviation) |
+| 2026-07-14 | frontend tsc --noEmit | pass | RepresentativeMatchesPanel |
 
 ## Changed Files in Current Phase
 
@@ -246,6 +272,13 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
 
 ## Next Action
 
-Phase 5 — Representative / Best / Deviation matches: standardized per-match feature vectors within
-the profile role/cohort, distance-based selection with recorded selection reasons and versions,
-exclusion rules (remakes/off-role/missing data), evidence windows per selection.
+Choose between (plan order allows either; both depend only on completed phases):
+- Phase 6 — AI agent hardening: deterministic tool-based data access, evidence-ID enforcement on
+  LLM statements, hypothesis cap, no-analysis-when-insufficient path.
+- Phase 7 — Advantage model: per-minute snapshot dataset from stored timelines, logistic baseline →
+  gradient boosting, temporal + match-grouped splits, calibration report; replaces heuristic curve
+  behind the same output shape (label stays 우세도 until validated).
+
+Additional Phase 5 limitations recorded: selections' "best" includes risk_management (inverted risk)
+in its mean — a safety-heavy game can be labeled best (consistent with profile framing, disclosed);
+selection profile-vector basis differs slightly from the Phase 4 profile (annotated in payload).

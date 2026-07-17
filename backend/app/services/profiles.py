@@ -61,6 +61,89 @@ DIMENSION_META: dict[str, dict[str, str]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Per-match dimension values — the single source of truth for both profile
+# aggregation and representative/deviation match selection (Phase 5).
+
+
+def early_growth_value(record: dict[str, Any]) -> float | None:
+    challenges = record.get("challenges", {})
+    lane = _as_float(challenges.get("laningPhaseGoldExpAdvantage"))
+    early = _as_float(challenges.get("earlyLaningPhaseGoldExpAdvantage"))
+    cs_adv = _as_float(challenges.get("maxCsAdvantageOnLaneOpponent"))
+    if lane is None and early is None and cs_adv is None:
+        return None
+    value = 50.0
+    if lane is not None:
+        value += (min(1.0, lane) - 0.5) * EARLY_LANE_ADV_WEIGHT
+    if early is not None:
+        value += (min(1.0, early) - 0.5) * EARLY_PHASE_ADV_WEIGHT
+    if cs_adv is not None:
+        value += max(-EARLY_CS_ADV_CAP, min(EARLY_CS_ADV_CAP, cs_adv))
+    return _clamp(value)
+
+
+def resource_conversion_value(record: dict[str, Any]) -> float | None:
+    dpg = _damage_per_gold(record)
+    if dpg is None:
+        return None
+    return _clamp(dpg * DPG_SCALE)
+
+
+def risk_management_value(record: dict[str, Any]) -> float | None:
+    scores = record.get("scores", {})
+    parts = []
+    for key, weight in RISK_COMPONENT_WEIGHTS:
+        value = scores.get(key)
+        if value is not None:
+            parts.append((float(value), weight))
+    if not parts:
+        return None
+    total_weight = sum(w for _, w in parts)
+    risk = sum(v * w for v, w in parts) / total_weight
+    return _clamp(100.0 - risk)
+
+
+def objective_readiness_value(record: dict[str, Any]) -> float | None:
+    setup = record.get("scores", {}).get("objective_setup_score")
+    if setup is None:
+        return None
+    takedowns = _elite_takedowns(record)
+    bonus = min(OBJECTIVE_TAKEDOWN_CAP, (takedowns or 0) * OBJECTIVE_TAKEDOWN_POINTS)
+    return _clamp(OBJECTIVE_SETUP_WEIGHT * float(setup) + bonus)
+
+
+def fight_contribution_value(record: dict[str, Any]) -> float | None:
+    teamfight = record.get("scores", {}).get("teamfight_persistence_score")
+    if teamfight is not None:
+        return _clamp(float(teamfight))
+    kp = _as_float(record.get("challenges", {}).get("killParticipation"))
+    if kp is None:
+        return None
+    return _clamp(kp * 100.0)
+
+
+DIMENSION_VALUE_FUNCS = {
+    "early_growth": early_growth_value,
+    "resource_conversion": resource_conversion_value,
+    "risk_management": risk_management_value,
+    "objective_readiness": objective_readiness_value,
+    "fight_contribution": fight_contribution_value,
+}
+
+DIMENSION_LABELS = {
+    "early_growth": "초반 성장 안정성",
+    "resource_conversion": "자원 전환 효율",
+    "risk_management": "위험 노출 관리",
+    "objective_readiness": "오브젝트 준비",
+    "fight_contribution": "교전 결과 기여",
+}
+
+
+def per_match_dimension_values(record: dict[str, Any]) -> dict[str, float | None]:
+    return {key: func(record) for key, func in DIMENSION_VALUE_FUNCS.items()}
+
+
 def dominant_role(records: list[dict[str, Any]]) -> str | None:
     counts: dict[str, int] = {}
     for record in records:
@@ -102,7 +185,7 @@ def build_player_profile(
             "dimensions": [],
         }
 
-    weights = [_recency_weight(record, now_ms) for record in role_records]
+    weights = [recency_weight(record, now_ms) for record in role_records]
     cohort_ok = len(cohort_rows) >= MIN_COHORT_ROWS
 
     dimensions = [
@@ -132,21 +215,7 @@ ROLE_LABELS = {"TOP": "탑", "JUNGLE": "정글", "MIDDLE": "미드", "BOTTOM": "
 
 
 def _early_growth(records, weights, cohort_rows, cohort_ok, comparison_group):
-    def per_match(record) -> float | None:
-        challenges = record.get("challenges", {})
-        lane = _as_float(challenges.get("laningPhaseGoldExpAdvantage"))
-        early = _as_float(challenges.get("earlyLaningPhaseGoldExpAdvantage"))
-        cs_adv = _as_float(challenges.get("maxCsAdvantageOnLaneOpponent"))
-        if lane is None and early is None and cs_adv is None:
-            return None
-        value = 50.0
-        if lane is not None:
-            value += (min(1.0, lane) - 0.5) * EARLY_LANE_ADV_WEIGHT
-        if early is not None:
-            value += (min(1.0, early) - 0.5) * EARLY_PHASE_ADV_WEIGHT
-        if cs_adv is not None:
-            value += max(-EARLY_CS_ADV_CAP, min(EARLY_CS_ADV_CAP, cs_adv))
-        return _clamp(value)
+    per_match = early_growth_value
 
     submetrics = []
     if cohort_ok:
@@ -186,11 +255,7 @@ def _early_growth(records, weights, cohort_rows, cohort_ok, comparison_group):
 
 
 def _resource_conversion(records, weights, cohort_rows, cohort_ok, comparison_group):
-    def per_match(record) -> float | None:
-        dpg = _damage_per_gold(record)
-        if dpg is None:
-            return None
-        return _clamp(dpg * DPG_SCALE)
+    per_match = resource_conversion_value
 
     submetrics = []
     cohort_dpg = _cohort_values(cohort_rows, _damage_per_gold) if cohort_ok else []
@@ -223,18 +288,7 @@ def _resource_conversion(records, weights, cohort_rows, cohort_ok, comparison_gr
 
 
 def _risk_management(records, weights, cohort_rows, cohort_ok, comparison_group):
-    def per_match(record) -> float | None:
-        scores = record.get("scores", {})
-        parts = []
-        for key, weight in RISK_COMPONENT_WEIGHTS:
-            value = scores.get(key)
-            if value is not None:
-                parts.append((float(value), weight))
-        if not parts:
-            return None
-        total_weight = sum(w for _, w in parts)
-        risk = sum(v * w for v, w in parts) / total_weight
-        return _clamp(100.0 - risk)
+    per_match = risk_management_value
 
     submetrics = []
     if cohort_ok:
@@ -261,13 +315,7 @@ def _risk_management(records, weights, cohort_rows, cohort_ok, comparison_group)
 
 
 def _objective_readiness(records, weights, cohort_rows, cohort_ok, comparison_group):
-    def per_match(record) -> float | None:
-        setup = record.get("scores", {}).get("objective_setup_score")
-        if setup is None:
-            return None
-        takedowns = _elite_takedowns(record)
-        bonus = min(OBJECTIVE_TAKEDOWN_CAP, (takedowns or 0) * OBJECTIVE_TAKEDOWN_POINTS)
-        return _clamp(OBJECTIVE_SETUP_WEIGHT * float(setup) + bonus)
+    per_match = objective_readiness_value
 
     submetrics = []
     if cohort_ok:
@@ -293,14 +341,7 @@ def _objective_readiness(records, weights, cohort_rows, cohort_ok, comparison_gr
 
 
 def _fight_contribution(records, weights, cohort_rows, cohort_ok, comparison_group):
-    def per_match(record) -> float | None:
-        teamfight = record.get("scores", {}).get("teamfight_persistence_score")
-        if teamfight is not None:
-            return _clamp(float(teamfight))
-        kp = _as_float(record.get("challenges", {}).get("killParticipation"))
-        if kp is None:
-            return None
-        return _clamp(kp * 100.0)
+    per_match = fight_contribution_value
 
     submetrics = []
     if cohort_ok:
@@ -423,7 +464,7 @@ def _submetric(
     }
 
 
-def _recency_weight(record: dict[str, Any], now_ms: int) -> float:
+def recency_weight(record: dict[str, Any], now_ms: int) -> float:
     game_creation = record.get("game_creation")
     if not game_creation:
         return 1.0

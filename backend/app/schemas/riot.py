@@ -381,6 +381,46 @@ class PlayerProfileResponse(BaseModel):
     dimensions: list[ProfileDimensionResponse] = []
 
 
+class SelectionDriverResponse(BaseModel):
+    key: str
+    label: str
+    value: float
+    profile_value: float
+    diff: float
+
+
+class MatchSelectionResponse(BaseModel):
+    kind: Literal["representative", "best", "deviation"]
+    match_id: str
+    champion_name: str | None = None
+    win: bool | None = None
+    game_creation: int | None = None
+    distance: float
+    mean_value: float
+    dimensions_used: int = 0
+    reason: str
+    drivers: list[SelectionDriverResponse] = []
+    vector: dict[str, float | None] = {}
+
+
+class MatchSelectionsResponse(BaseModel):
+    puuid: str
+    role: str
+    window: str
+    games_considered: int
+    eligible_matches: int
+    excluded_matches: int
+    selection_version: int
+    method: str
+    computed_at_ms: int | None = None
+    insufficient_data: bool
+    profile_vector: dict[str, float] = {}
+    profile_vector_basis: str | None = None
+    representative: MatchSelectionResponse | None = None
+    best: MatchSelectionResponse | None = None
+    deviation: MatchSelectionResponse | None = None
+
+
 class ReportPatternResponse(BaseModel):
     key: str
     severity: Literal["positive", "warn", "critical"]

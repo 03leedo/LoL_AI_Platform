@@ -13,6 +13,7 @@ from app.repositories.analysis import (
     replace_aggregate_scores,
     replace_match_metric_scores,
     replace_match_moments,
+    save_report,
 )
 from app.repositories.matches import (
     replace_match_events,
@@ -28,6 +29,7 @@ from app.schemas.riot import (
     MatchPlayerAnalysisResponse,
     MatchReviewResponse,
     MatchSummaryResponse,
+    MatchSelectionsResponse,
     MatchTimelineAnalysisResponse,
     PlayerProfileResponse,
     PlayerReportResponse,
@@ -54,6 +56,11 @@ from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm
 from app.services.match_data import get_match_cached, get_timeline_cached
 from app.services.match_summaries import summarize_match_for_player
 from app.services.reports import get_or_create_report
+from app.services.representative_matches import (
+    SELECTION_METHOD,
+    SELECTION_VERSION,
+    build_match_selections,
+)
 from app.services.win_probability import build_win_curve
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
@@ -382,6 +389,83 @@ async def get_player_profile(
         available_roles=available_roles,
         **profile,
     )
+
+
+@router.get("/summoner/{game_name}/{tag_line}/representative-matches", response_model=MatchSelectionsResponse)
+async def get_representative_matches(
+    game_name: str,
+    tag_line: str,
+    window: int = Query(default=20, ge=5, le=30),
+    queue: int = Query(default=420, ge=0, description="Queue id filter; 0 disables"),
+    role: str | None = Query(default=None, description="TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY; default = dominant role"),
+    db: AsyncSession = Depends(get_db),
+) -> MatchSelectionsResponse:
+    import time
+
+    client = RiotClient()
+
+    try:
+        account = await client.get_account_by_riot_id(game_name, tag_line)
+    except RiotApiError as exc:
+        raise riot_error_to_http(exc) from exc
+
+    puuid = account["puuid"]
+    records = await fetch_player_match_records(
+        db=db,
+        puuid=puuid,
+        limit=window,
+        queue_ids=[queue] if queue else None,
+    )
+
+    target_role = (role or "").upper() or (dominant_role(records) or "")
+    if role and target_role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Unknown role '{role}'")
+
+    window_key = f"recent{window}"
+    if not target_role:
+        return MatchSelectionsResponse(
+            puuid=puuid,
+            role="UNKNOWN",
+            window=window_key,
+            games_considered=0,
+            eligible_matches=0,
+            excluded_matches=0,
+            selection_version=SELECTION_VERSION,
+            method=SELECTION_METHOD,
+            insufficient_data=True,
+        )
+
+    selections = build_match_selections(
+        records=records,
+        role=target_role,
+        now_ms=int(time.time() * 1000),
+    )
+
+    # Persist selection reasons + version (Phase 5 acceptance: selections are
+    # recorded and reproducible for a given record set).
+    if records:
+        cache_key = (
+            f"sel{SELECTION_VERSION}:m{METRIC_VERSION}:q{queue or 0}:{target_role}:"
+            f"{window_key}:{records[0]['match_id']}"
+        )
+        try:
+            await save_report(
+                db=db,
+                puuid=puuid,
+                cache_key=cache_key,
+                window=window_key,
+                generated_by="rules",
+                content=selections,
+                report_type="selections",
+            )
+        except Exception as exc:  # pragma: no cover - selections should still be returned
+            logger.warning("Selection persistence skipped for %s: %s", puuid, exc)
+            try:
+                await db.rollback()
+            except Exception:  # pragma: no cover
+                pass
+
+    return MatchSelectionsResponse(puuid=puuid, window=window_key, **selections)
 
 
 @router.get("/summoner/{game_name}/{tag_line}/report", response_model=PlayerReportResponse)
