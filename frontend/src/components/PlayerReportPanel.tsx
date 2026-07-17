@@ -56,6 +56,8 @@ export function PlayerReportPanel({ gameName, tagLine }: { gameName: string; tag
   const hasWeaknesses = (report?.weaknesses.length ?? 0) > 0;
   const replayQuestions = report?.replay_questions ?? [];
   const limitations = report?.limitations ?? [];
+  const observations = report?.observations ?? [];
+  const hypotheses = report?.hypotheses ?? [];
 
   return (
     <section className="history-panel">
@@ -112,7 +114,43 @@ export function PlayerReportPanel({ gameName, tagLine }: { gameName: string; tag
           <div className="report-section">
             <h3>요약</h3>
             <p className="report-summary">{report.summary}</p>
+            {report.llm_insufficient_reason && (
+              <p className="report-meta-text">AI 서술 생략: {report.llm_insufficient_reason}</p>
+            )}
           </div>
+
+          {observations.length > 0 && (
+            <div className="report-section">
+              <h3>관측 (근거 연결됨)</h3>
+              <ul className="statement-list">
+                {observations.map((statement, index) => (
+                  <li key={`observation-${index}`}>
+                    <span>{statement.text}</span>
+                    {statement.refs.length > 0 && (
+                      <span className="statement-refs">
+                        {statement.refs.map((ref) => (
+                          <code key={ref}>{ref}</code>
+                        ))}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {hypotheses.length > 0 && (
+            <div className="report-section">
+              <h3>가설 (확정 아님 · 리플레이 확인 대상)</h3>
+              <ul className="statement-list is-hypothesis">
+                {hypotheses.map((statement, index) => (
+                  <li key={`hypothesis-${index}`}>
+                    <span>{statement.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {(hasStrengths || hasWeaknesses) && (
             <div className={hasStrengths && hasWeaknesses ? "report-columns" : "report-columns is-single"}>

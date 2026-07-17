@@ -62,6 +62,12 @@ async def _openai_generate(system_prompt: str, payload: dict[str, Any]) -> str:
     headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
 
     data = await _post_json(url, headers, body)
+    usage = data.get("usage") or {}
+    logger.info(
+        "LLM usage: provider=openai-compat model=%s total_tokens=%s",
+        settings.openai_model,
+        usage.get("total_tokens"),
+    )
     try:
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
@@ -85,6 +91,13 @@ async def _anthropic_generate(system_prompt: str, payload: dict[str, Any]) -> st
     }
 
     data = await _post_json(url, headers, body)
+    usage = data.get("usage") or {}
+    logger.info(
+        "LLM usage: provider=anthropic model=%s input_tokens=%s output_tokens=%s",
+        settings.anthropic_model,
+        usage.get("input_tokens"),
+        usage.get("output_tokens"),
+    )
     try:
         blocks = data["content"]
         text = "".join(block.get("text", "") for block in blocks if block.get("type") == "text")

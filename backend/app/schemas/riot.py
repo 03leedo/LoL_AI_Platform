@@ -444,6 +444,11 @@ class DeathAutopsyResponse(BaseModel):
     avg_first_death_minute: float | None = None
 
 
+class ReportStatementResponse(BaseModel):
+    text: str
+    refs: list[str] = []
+
+
 class PlayerReportResponse(BaseModel):
     puuid: str
     window: str
@@ -456,6 +461,12 @@ class PlayerReportResponse(BaseModel):
     strengths: list[str] = []
     weaknesses: list[str] = []
     recommendations: list[str] = []
+    # Phase 6: evidence-grounded LLM statements (refs point at pattern ids /
+    # match ids present in the report payload; enforced server-side).
+    observations: list[ReportStatementResponse] = []
+    hypotheses: list[ReportStatementResponse] = []
+    llm_prompt_version: int | None = None
+    llm_insufficient_reason: str | None = None
     limitations: list[str] = []
     replay_questions: list[str] = []
     patterns: list[ReportPatternResponse] = []

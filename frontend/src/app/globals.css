@@ -2164,3 +2164,39 @@ button:disabled {
     transition: none;
   }
 }
+
+/* Phase 6: evidence-grounded AI statements */
+.statement-list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+}
+
+.statement-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.statement-list.is-hypothesis li {
+  color: var(--muted);
+}
+
+.statement-refs {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.statement-refs code {
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1px 6px;
+}

@@ -372,6 +372,11 @@ export type PlayerReportAutopsy = {
   avg_first_death_minute: number | null;
 };
 
+export type ReportStatement = {
+  text: string;
+  refs: string[];
+};
+
 export type PlayerReportResponse = {
   puuid: string;
   window: string;
@@ -384,6 +389,11 @@ export type PlayerReportResponse = {
   strengths: string[];
   weaknesses: string[];
   recommendations: string[];
+  /** Phase 6: 근거 ID가 강제된 AI 관측/가설 (refs = 패턴 id 또는 매치 id) */
+  observations?: ReportStatement[];
+  hypotheses?: ReportStatement[];
+  llm_prompt_version?: number | null;
+  llm_insufficient_reason?: string | null;
   patterns: PlayerReportPattern[];
   autopsy: PlayerReportAutopsy | null;
   limitations?: string[];
