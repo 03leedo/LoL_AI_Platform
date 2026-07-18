@@ -224,7 +224,9 @@ async def get_summoner_heatmap(
 async def start_summoner_ingest(
     game_name: str,
     tag_line: str,
-    count: int = Query(default=20, ge=1, le=30),
+    # 100 is the Riot match-ids single-page maximum; a 100-match job stays
+    # within the dev-key window (~200 calls) via the client's limiter.
+    count: int = Query(default=20, ge=1, le=100),
     queue: int = Query(default=420, ge=0, description="Riot queue id filter; 0 disables the filter"),
     db: AsyncSession = Depends(get_db),
 ) -> IngestJobResponse:

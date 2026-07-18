@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `8 — Expected-performance models` **COMPLETE** (2026-07-18, domain-reviewed) → next is `9 — Live Client collector` (companion C1, see master-plan §7.4) — or grow ingestion volume first, which every ML gate is waiting on
-- State: `PHASE_9_READY`
+- Phase: `Data volume expansion` **IN PROGRESS** (started 2026-07-18; user-chosen over Phase 9 — every ML gate waits on volume; backlog item 1)
+- State: `DATA_EXPANSION_ACTIVE`
 - Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -129,7 +129,35 @@ Ordered by expected impact; each is an explicit versioned change, never a silent
 
 ### Outcome
 
-Phase 8 — Expected-performance models: per-participant GD@10 / CSD@10 / XPD@10 dataset from raw
+Data volume expansion (backlog item 1): backfill derived tables from stored raw timelines
+(no API), cohort snowball collector seeded from stored participants (dedupe, cap, rate-limit
+respectful, key-expiry abort), lookup ingest cap 30→100. Team/cohort matches are denominators
+and model inputs only — no team-fit analysis.
+
+Delivered (2026-07-18):
+- `backend/app/services/match_collector.py`: `--backfill` recomputes participants/events/
+  timeline features from stored raw payloads (zero API calls); collection mode snowballs from
+  registered summoners then recent stored participants, skips already-stored/duplicate matches,
+  caps new ingests, tolerates per-match/per-seed failures, and aborts cleanly on 401/403
+  (dev-key rotation) instead of hammering the API. Reuses `ingest_single_match` — no parallel
+  ingestion path.
+- Lookup ingest route cap 30→100 (Riot single-page max; ~200 calls per 100-match job under the
+  client limiter).
+- **Backfill executed**: 48/48 matches restored into match_timeline_features / match_events;
+  match_participants now covers all 55 stored matches (fixes the empty-derived-tables state and
+  the legacy mixed-denominator risk for stored matches).
+- Collection verified end-to-end against the live API: aborted with
+  "riot key rejected (401) — rotate RIOT_API_KEY" (dev key expired; no retries fired).
+  Full run pending a fresh key.
+- 5 new tests (dedupe vs stored+in-run duplicates, cap stops seed queries, 401/403 abort,
+  transient seed failure continues, single-match failure isolation).
+
+Not domain-reviewed: collection infrastructure only — no analysis semantics, metric formulas,
+or user-facing copy changed.
+
+---
+
+Previous package — Phase 8 — Expected-performance models: per-participant GD@10 / CSD@10 / XPD@10 dataset from raw
 timelines, grouped-average expected values (baselines before any model, per MODEL_RULES),
 residual output `actual − expected`, temporal match-grouped held-out report. Report-only:
 no serving/profile integration this phase.
@@ -389,6 +417,9 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-18 | `python -m app.ml.train_advantage` | keep_heuristic | 40 matches/1137 rows; report in docs/ml/reports/ |
 | 2026-07-18 | `pytest` | 204 passed | + expected performance (pairing, baselines, fallback, report) |
 | 2026-07-18 | `python -m app.ml.train_expected` | report_only | 40 matches/400 rows; report in docs/ml/reports/ |
+| 2026-07-18 | `pytest` | 209 passed | + match collector (dedupe, cap, abort, failure isolation) |
+| 2026-07-18 | `match_collector --backfill` | 48 backfilled, 0 failed | derived tables restored from stored raw |
+| 2026-07-18 | `match_collector --max-new 3` | aborted: key rejected (401) | clean abort verified; full run needs fresh key |
 
 ## Changed Files in Current Phase
 
@@ -418,13 +449,14 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
 
 ## Next Action
 
-Two candidate directions (user decision):
-1. **Grow data volume** — the binding constraint on every ML gate (backlog item 1): widen
-   ingestion (more matches per lookup, scheduled refresh of known summoners), then periodically
-   re-run `train_advantage` / `train_expected` and compare reports across volumes.
-2. **Phase 9 — Live Client collector** (companion C1, master-plan §7.4): local desktop companion
-   streaming Live Client Data API during the user's own games; new runtime surface (separate
-   process, not the FastAPI backend).
+1. **Rotate RIOT_API_KEY** (user: developer.riotgames.com → regenerate dev key → update `.env` →
+   restart backend container), then run
+   `docker compose exec backend python -m app.services.match_collector --max-new 100`
+   (repeatable; each run adds up to 100 new ranked-solo matches).
+2. After volume grows: re-run `train_advantage` / `train_expected`, save reports to
+   `docs/ml/reports/`, compare against the 2026-07-18 baselines.
+3. Then either continue expanding (repeat 1–2 daily within key windows) or start Phase 9 —
+   Live Client collector (companion C1, master-plan §7.4).
 
 ML adoption stays gated regardless: advantage model needs ≥300 matches + calibration; expected
 residuals need ≥300 matches + a baseline that clearly beats zero before any profile integration.
