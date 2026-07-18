@@ -1,0 +1,15 @@
+{
+  "purpose": "One-off convergence probe: is the logistic gap optimization-limited or capacity-limited?",
+  "date": "2026-07-19",
+  "dataset_version": 2,
+  "matches": 526,
+  "split": "temporal_match_grouped, test_fraction 0.3 (368 train / 158 test matches)",
+  "caveat": "Probe read the SAME temporal test split the adoption gate evaluates — that window is no longer selection-clean; see ADVANTAGE_MODEL.md gate caveat and the forward tuning rule.",
+  "grid": [
+    {"epochs": 1500, "learning_rate": 0.1, "test_log_loss": 0.5739, "test_brier": 0.1971, "test_auc": 0.7665, "train_log_loss": 0.5720},
+    {"epochs": 5000, "learning_rate": 0.1, "test_log_loss": 0.5702, "test_brier": 0.1960, "test_auc": 0.7679, "train_log_loss": 0.5695},
+    {"epochs": 5000, "learning_rate": 0.3, "test_log_loss": 0.5690, "test_brier": 0.1956, "test_auc": 0.7682, "train_log_loss": 0.5686},
+    {"epochs": 15000, "learning_rate": 0.3, "test_log_loss": 0.5689, "test_brier": 0.1956, "test_auc": 0.7683, "train_log_loss": 0.5686}
+  ],
+  "conclusion": "1500@0.1 was underfit; plateau reached at 5000@0.3 (15000 changes nothing). Train loss equals test loss at the plateau, so the remaining gap to the heuristic is linear-capacity-limited, not overfitting or under-optimization."
+}

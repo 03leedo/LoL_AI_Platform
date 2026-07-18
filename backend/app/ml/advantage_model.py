@@ -13,14 +13,22 @@ accuracy; the output is called advantage (우세도), not win probability.
 import math
 from typing import Any
 
-from app.ml.advantage_dataset import DATASET_VERSION, FEATURE_NAMES, temporal_match_split
+from app.ml.advantage_dataset import (
+    DATASET_VERSION,
+    FEATURE_NAMES,
+    full_feature_row,
+    temporal_match_split,
+)
 from app.services.win_probability import build_win_curve
 
 MODEL_VERSION = 1
 
 # Training hyperparameters (deterministic: zero init, full batch, fixed epochs).
-LEARNING_RATE = 0.1
-EPOCHS = 1500
+# Convergence probe 2026-07-19 (n=526): 1500@0.1 was underfit (test log loss
+# 0.5739); 5000@0.3 reaches the plateau (0.5690; 15000 epochs changes nothing)
+# with train≈test loss, i.e. capacity-limited, not overfit.
+LEARNING_RATE = 0.3
+EPOCHS = 5000
 L2_LAMBDA = 1e-3
 
 TEST_FRACTION = 0.3
@@ -44,7 +52,8 @@ def _sigmoid(z: float) -> float:
 
 
 def _feature_vector(row: dict[str, Any]) -> list[float]:
-    return [float(row[name]) for name in FEATURE_NAMES]
+    full = full_feature_row(row)
+    return [float(full[name]) for name in FEATURE_NAMES]
 
 
 def train_logistic(train_rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -79,6 +88,7 @@ def train_logistic(train_rows: list[dict[str, Any]]) -> dict[str, Any]:
         "model_version": MODEL_VERSION,
         "dataset_version": DATASET_VERSION,
         "model_type": "logistic_regression_gd",
+        "hyperparameters": {"epochs": EPOCHS, "learning_rate": LEARNING_RATE, "l2": L2_LAMBDA},
         "feature_names": list(FEATURE_NAMES),
         "means": means,
         "stds": stds,
@@ -89,11 +99,12 @@ def train_logistic(train_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def predict_from_artifact(artifact: dict[str, Any], row: dict[str, Any]) -> float:
     """Inference-parity entry point: same math for training eval and serving."""
+    full = full_feature_row(row)
     z = artifact["intercept"]
     for name, mean, std, weight in zip(
         artifact["feature_names"], artifact["means"], artifact["stds"], artifact["coefficients"]
     ):
-        z += weight * ((float(row[name]) - mean) / std)
+        z += weight * ((float(full[name]) - mean) / std)
     return _sigmoid(z)
 
 

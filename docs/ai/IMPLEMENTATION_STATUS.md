@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `Data volume expansion` **COMPLETE** (2026-07-18) — 55→350 stored matches (333 usable q420); volume gates now PASS; ML adoption now blocked only by model quality (heuristic still wins) → next is model iteration (backlog 2/5/6) or `9 — Live Client collector`
-- State: `PHASE_9_READY`
+- Phase: `Advantage model iteration v2` **COMPLETE** (2026-07-19, domain-reviewed) — gate now fails on Brier alone (model wins log loss + ECE); next candidate is boosting (backlog 6, under the new selection-clean tuning rule) or Phase 9
+- State: `ADVANTAGE_V2_DONE`
 - Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -119,7 +119,11 @@ Ordered by expected impact; each is an explicit versioned change, never a silent
    baron-buff-active window, side, patch; champion composition much later. Each = FEATURE bump +
    dataset version bump.
 6. **Boosting** — only after logistic is beaten on held-out data (MODEL_RULES); revisit the
-   no-numpy decision at that point.
+   no-numpy decision at that point. **Binding tuning rule (2026-07-19 review):** all future
+   hyperparameter/model selection uses a temporal validation slice carved from train — never
+   the gate's test split (the current test window is not selection-clean after the convergence
+   probe); an `adopt` verdict must additionally be confirmed on matches ingested after the
+   last tuning date.
 7. **Patch calibration is currently trivial** — all local matches share one patch; becomes
    meaningful (and a required check) once data spans patches.
 8. **Phase 6 guard leftovers** (low priority, fail-safe directions recorded): 할푼 fraction,
@@ -129,7 +133,32 @@ Ordered by expected impact; each is an explicit versioned change, never a silent
 
 ### Outcome
 
-Data volume expansion (backlog item 1): backfill derived tables from stored raw timelines
+Advantage model iteration v2 (backlog items 2+5): DATASET_VERSION 2 — exclude each match's
+terminal frame (removes the near-label-encoding optimism disclosed in Phase 7 review) and add
+minute-interaction features (gold/xp diff × game-time weight — the exact axis where the
+hand-tuned heuristic wins). Single feature-derivation helper shared by training and any future
+serving path (parity). Heuristic stays in production unless the documented gate passes.
+
+Delivered (2026-07-19):
+- DATASET_VERSION 2 in `advantage_dataset.py`: `features[:-1]` terminal-frame exclusion;
+  `derived_feature_values`/`full_feature_row` compute `gold_diff_x_time`/`xp_diff_x_time`
+  (× min(1.5, 0.5+m/30)) at vectorization time — rows never store them, so training and
+  inference share one derivation point; old v1 artifacts stay readable.
+- Convergence probe: 1500@0.1 was underfit; constants bumped to 5000 epochs, lr 0.3 (plateau;
+  train≈test loss → capacity-limited, not overfit). Canonical record:
+  `docs/ml/reports/convergence_probe_2026-07-19.json`. Gate caveat: the probed test window is
+  no longer selection-clean — binding forward tuning rule recorded (backlog 6 + model doc).
+- Retrained at n=526 on dataset v2: model now beats the heuristic on log loss (0.5690 vs
+  0.5728) and ECE (0.042 vs 0.046); trails ONLY on Brier (0.1956 vs 0.1943) → verdict
+  keep_heuristic with a single remaining criterion. Result-history table added to
+  ADVANTAGE_MODEL.md; report `advantage_v2_2026-07-19_n526.json`.
+- Remaining ceiling is linear capacity → next candidate is boosting (backlog 6), adopted only
+  if it beats BOTH the logistic and the heuristic on the same gate.
+- 3 new tests (terminal-frame exclusion, single-frame match, derived interactions); 213 pass.
+
+---
+
+Previous package — Data volume expansion (backlog item 1): backfill derived tables from stored raw timelines
 (no API), cohort snowball collector seeded from stored participants (dedupe, cap, rate-limit
 respectful, key-expiry abort), lookup ingest cap 30→100. Team/cohort matches are denominators
 and model inputs only — no team-fit analysis.
@@ -442,6 +471,8 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-19 | `match_collector` round 3 | 200 new, 0 failed | 550 q420 stored (544 timelines); pool measured EMERALD–DIAMOND (15-player sample: 8 E / 7 D) |
 | 2026-07-19 | `train_advantage` (n=526) | keep_heuristic (quality) | gap narrowed: heuristic AUC 0.790 vs model 0.781; model ECE 0.041 now beats heuristic 0.044 — report `advantage_v1_2026-07-19_n526.json` |
 | 2026-07-19 | `train_expected` (n=524) | report_only | zero baseline still best — report `expected_v1_2026-07-19_n524.json` |
+| 2026-07-19 | `pytest` | 213 passed | + dataset v2 (terminal-frame exclusion, interaction features) |
+| 2026-07-19 | `train_advantage` (n=526, dataset v2) | keep_heuristic (Brier only) | model wins LL 0.5690 vs 0.5728 + ECE; trails Brier 0.1956 vs 0.1943 — report `advantage_v2_2026-07-19_n526.json` |
 
 ## Changed Files in Current Phase
 

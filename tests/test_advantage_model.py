@@ -108,6 +108,8 @@ class TrainLogisticTest(unittest.TestCase):
         self.assertEqual(
             predict_from_artifact(artifact, probe), predict_from_artifact(restored, probe)
         )
+        # runs must be self-describing
+        self.assertIn("epochs", restored["hyperparameters"])
 
 
 class HeuristicBaselineTest(unittest.TestCase):

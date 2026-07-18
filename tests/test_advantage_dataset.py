@@ -5,6 +5,7 @@ from app.ml.advantage_dataset import (
     FEATURE_NAMES,
     build_dataset,
     derive_blue_win,
+    full_feature_row,
     patch_of,
     snapshot_rows_for_match,
     temporal_match_split,
@@ -97,16 +98,39 @@ class SnapshotRowsTest(unittest.TestCase):
             "KR_1", make_match(blue_win=True), make_timeline(minutes=3), 1_700_000_000_000
         )
 
-        self.assertEqual(len(rows), 3)
+        # terminal frame excluded → 3 frames yield 2 snapshot rows
+        self.assertEqual(len(rows), 2)
         row = rows[1]
+        full = full_feature_row(row)
         for name in FEATURE_NAMES:
-            self.assertIn(name, row)
+            self.assertIn(name, full)
         self.assertEqual(row["gold_diff"], (600 - 500) * 5)
         self.assertEqual(row["blue_win"], 1)
         self.assertEqual(row["patch"], "14.10")
         self.assertEqual(row["game_creation"], 1_700_000_000_000)
         # heuristic-baseline fields preserved for inference parity
         self.assertIn("blue_baron_kills", row)
+
+    def test_terminal_frame_is_excluded(self) -> None:
+        rows = snapshot_rows_for_match(
+            "KR_1", make_match(blue_win=True), make_timeline(minutes=5), 1_700_000_000_000
+        )
+        self.assertEqual([r["minute"] for r in rows], [0, 1, 2, 3])
+
+    def test_single_frame_match_yields_no_rows(self) -> None:
+        rows = snapshot_rows_for_match(
+            "KR_1", make_match(blue_win=True), make_timeline(minutes=1), 1_700_000_000_000
+        )
+        self.assertEqual(rows, [])
+
+    def test_derived_interaction_features(self) -> None:
+        row = {"minute": 30, "gold_diff": 2_000, "xp_diff": 1_000}
+        full = full_feature_row(row)
+        # time weight at 30min = min(1.5, 0.5 + 30/30) = 1.5
+        self.assertEqual(full["gold_diff_x_time"], 3_000.0)
+        self.assertEqual(full["xp_diff_x_time"], 1_500.0)
+        early = full_feature_row({"minute": 0, "gold_diff": 2_000, "xp_diff": 0})
+        self.assertEqual(early["gold_diff_x_time"], 1_000.0)
 
     def test_ambiguous_winner_yields_no_rows(self) -> None:
         rows = snapshot_rows_for_match(
@@ -135,7 +159,7 @@ class BuildDatasetTest(unittest.TestCase):
 
     def test_domain_derived_from_queue_and_exclusions_recorded(self) -> None:
         records = [
-            self._record("KR_OK"),
+            self._record("KR_OK", timeline_json=make_timeline(minutes=3)),
             self._record("KR_REMAKE", game_duration=120),
             self._record("KR_NO_CREATION", game_creation=None),
             self._record("KR_NO_WINNER", raw_json=make_match(blue_win=None)),
@@ -152,6 +176,7 @@ class BuildDatasetTest(unittest.TestCase):
                 "KR_NO_WINNER": "no_winner_or_no_frames",
             },
         )
+        # 3 frames − terminal frame = 2 rows
         self.assertEqual(len(dataset["rows"]), 2)
 
 

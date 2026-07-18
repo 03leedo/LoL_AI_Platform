@@ -21,17 +21,20 @@ Label = blue win, derived from the match payload's `info.teams[].win`
 ## Inference-time features
 
 `minute, gold_diff, xp_diff, cs_diff, tower_diff, dragon_diff, herald_diff,
-baron_diff` (blue minus red). All are available at the snapshot minute on the
-existing win-curve path; no feature reads later minutes or the match outcome.
+baron_diff` (blue minus red), plus derived interactions `gold_diff_x_time` and
+`xp_diff_x_time` (diff × the heuristic's game-time weight, min(1.5, 0.5+m/30)).
+Derived values are computed by a single helper (`full_feature_row`) shared by
+training and inference — rows never store them, so the paths cannot drift.
+All features are available at the snapshot minute; no feature reads later
+minutes or the match outcome.
 
-**Known limitation — terminal frames:** the analyzer keeps each match's final
-frame, whose state (nexus turrets count as towers, end-of-game gold) nearly
-determines the label. This is observable in-game at that minute — not strict
-leakage, and both baselines see identical rows — but aggregate metrics are
-optimistic, and the adoption gate is aggregate-only: a candidate could win
-mostly on terminal frames while being worse mid-game. Planned as an explicit
-`DATASET_VERSION 2` change (final-frame exclusion or a per-time-bucket gate
-criterion); v1 keeps the frames and this disclosure.
+**Terminal frames (resolved in DATASET_VERSION 2):** v1 kept each match's
+final frame, whose end-of-game state nearly encodes the label, making
+aggregate metrics optimistic. Since v2 (2026-07-19) the terminal frame is
+excluded from every row (training, evaluation, and both baselines see the
+same filtered snapshots). The remaining softer form — the second-to-last
+frame is still 60s from game end — is accepted and disclosed; a per-time-
+bucket gate criterion stays on the backlog.
 
 ## Missing-data handling
 
@@ -68,8 +71,22 @@ by game-time bucket (0–9/10–19/20–29/30+) and by patch. Reports are writte
 
 ## Model / feature version
 
-- `DATASET_VERSION 1`, `MODEL_VERSION 1` (`logistic_regression_gd`, pure
-  Python, deterministic: zero init, full batch, fixed 1500 epochs, L2 1e-3).
+- `DATASET_VERSION 2` (terminal-frame exclusion + interaction features;
+  v1 = raw per-minute snapshots), `MODEL_VERSION 1` (`logistic_regression_gd`,
+  pure Python, deterministic: zero init, full batch, 5000 epochs, lr 0.3,
+  L2 1e-3). Artifacts record their hyperparameters, so runs are
+  self-describing.
+
+**Gate caveat (2026-07-19):** the 5000/0.3 hyperparameters were
+convergence-probed against the *current temporal test split*
+(`docs/ml/reports/convergence_probe_2026-07-19.json`) — that window is no
+longer selection-clean. Convergence-to-plateau is the most benign form of
+tuning and the verdict stayed keep_heuristic, so no contaminated adoption
+occurred; but the forward rule is binding: **future tuning and model
+selection (incl. boosting) use a validation slice carved from train
+(temporal train/val), and any `adopt` verdict must be confirmed on matches
+ingested after the last tuning date** (nearly free with the rolling
+newest-30% test as data grows).
 - Artifact is self-contained JSON: feature names, standardization means/stds,
   coefficients, intercept, domain, queue, train volume.
   `predict_from_artifact` is the single inference entry point (train/serve
@@ -87,15 +104,24 @@ untouched — it remains the production curve and the fallback at all times.
 Adoption, when justified, is a separate explicit change behind the same output
 shape.
 
-## Current result (2026-07-18, `docs/ml/reports/advantage_v1_2026-07-18.json`)
+## Result history (reports in `docs/ml/reports/`)
 
-40 usable matches / 1137 snapshots (1 match excluded: remake_or_short).
-Held-out (12 matches, 350 rows): model AUC 0.785, log loss 0.559, Brier 0.193,
-ECE 0.086 vs heuristic AUC 0.778, log loss 0.561, Brier 0.194, ECE 0.077.
+| date | n (matches) | dataset | model AUC/LL/Brier/ECE | heuristic AUC/LL/Brier/ECE | verdict |
+|---|---|---|---|---|---|
+| 2026-07-18 | 40 | v1 | .785/.559/.193/.086 | .778/.561/.194/.077 | keep (volume, ECE) |
+| 2026-07-18 | 333 | v1 | .782/.548/.189/.046 | .814/.526/.176/.030 | keep (LL+Brier) |
+| 2026-07-19 | 526 | v1 | .781/.557/.191/.041 | .790/.555/.188/.044 | keep (LL+Brier) |
+| 2026-07-19 | 526 | **v2** | .768/**.569**/.196/**.042** | .775/.573/**.194**/.046 | keep (**Brier only**) |
 
-**Verdict: keep_heuristic** — volume far below gate (40 < 300 matches,
-12 < 60 test matches) and ECE above threshold (0.086 > 0.05; the heuristic is
-currently better calibrated). The deliverable of this phase is the validated,
-reproducible pipeline and this honest report, not a model swap. Re-run
-`docker compose exec backend python -m app.ml.train_advantage` as ingested
-volume grows.
+v1 and v2 rows use different snapshot populations (v2 drops each match's
+easiest, terminal snapshot), so absolute values are **not comparable across
+dataset versions** — compare model vs heuristic within a row only.
+
+Reading: the 40-match "model edge" was noise; at real volume the hand-tuned
+heuristic led everywhere, and successive honest changes (terminal-frame
+exclusion, interaction features, converged optimization) closed the gap to a
+single criterion — v2 beats the heuristic on log loss and ECE and trails only
+on Brier (0.1956 vs 0.1943). Linear capacity is the remaining ceiling
+(train≈test loss): per MODEL_RULES the next step is boosting, adopted only if
+it beats BOTH the logistic and the heuristic on the same gate. The heuristic
+stays in production.

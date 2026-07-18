@@ -20,7 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import RiotMatch, RiotMatchTimeline
 from app.services.timeline_analyzer import BLUE_TEAM_ID, analyze_match_timeline
 
-DATASET_VERSION = 1
+# v2 (2026-07-19): terminal frame excluded — end-of-game state nearly encodes
+#     the label, making aggregate metrics optimistic (Phase 7 review M1);
+#     minute-interaction features added (gold/xp diff × game-time weight).
+DATASET_VERSION = 2
 DEFAULT_QUEUE_ID = 420  # ranked solo — the only local domain (soloq, never pro)
 MIN_GAME_DURATION_S = 300  # remakes are excluded, consistent with profiles/reports
 
@@ -30,7 +33,8 @@ MIN_GAME_DURATION_S = 300  # remakes are excluded, consistent with profiles/repo
 QUEUE_DOMAINS = {420: "soloq"}
 
 # Model inputs, in column order. Diffs are blue-minus-red; `minute` lets the
-# model learn time-dependent weighting the heuristic hand-tunes.
+# model learn time-dependent weighting; the ×time interactions expose the
+# late-gold-is-decisive axis the hand-tuned heuristic wins on.
 FEATURE_NAMES = [
     "minute",
     "gold_diff",
@@ -40,7 +44,32 @@ FEATURE_NAMES = [
     "dragon_diff",
     "herald_diff",
     "baron_diff",
+    "gold_diff_x_time",
+    "xp_diff_x_time",
 ]
+
+
+def _time_weight(minute: int) -> float:
+    # Same shape as the heuristic's gold aging curve (win_probability.py).
+    return min(1.5, 0.5 + minute / 30.0)
+
+
+def derived_feature_values(row: dict[str, Any]) -> dict[str, float]:
+    """Interaction features computed from base snapshot fields.
+
+    Single derivation point shared by training and inference (parity): rows
+    never store these columns, so training and any future serving path cannot
+    drift apart.
+    """
+    time_weight = _time_weight(int(row["minute"]))
+    return {
+        "gold_diff_x_time": float(row["gold_diff"]) * time_weight,
+        "xp_diff_x_time": float(row["xp_diff"]) * time_weight,
+    }
+
+
+def full_feature_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {**row, **derived_feature_values(row)}
 
 
 def derive_blue_win(match_raw: dict[str, Any]) -> bool | None:
@@ -79,6 +108,9 @@ def snapshot_rows_for_match(
     if blue_win is None:
         return []
     features = analyze_match_timeline(match_id, match_raw, timeline_raw)
+    # Drop the terminal frame: its end-of-game state (nexus towers, final
+    # gold) nearly encodes the label and inflates aggregate metrics.
+    features = features[:-1]
     patch = patch_of(match_raw)
     rows: list[dict[str, Any]] = []
     for feature in features:
