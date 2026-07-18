@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `Data volume expansion` **IN PROGRESS** (started 2026-07-18; user-chosen over Phase 9 — every ML gate waits on volume; backlog item 1)
-- State: `DATA_EXPANSION_ACTIVE`
+- Phase: `Data volume expansion` **COMPLETE** (2026-07-18) — 55→350 stored matches (333 usable q420); volume gates now PASS; ML adoption now blocked only by model quality (heuristic still wins) → next is model iteration (backlog 2/5/6) or `9 — Live Client collector`
+- State: `PHASE_9_READY`
 - Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -154,6 +154,21 @@ Delivered (2026-07-18):
 
 Not domain-reviewed: collection infrastructure only — no analysis semantics, metric formulas,
 or user-facing copy changed.
+
+Collection executed (2026-07-18, after key rotation + riot-id seed fix):
+- Round 1: 100 new matches (5 seeds, 0 failed). Round 2: 200 new (12 seeds, 0 failed).
+  Totals: 350 q420 matches / 344 timelines stored (was 47/41). Seed pool barely tapped.
+- Retrained at n=333 (advantage) / n=332 (expected); reports preserved as
+  `docs/ml/reports/*_n333.json`:
+  - **Advantage**: volume gates PASS (333 ≥ 300, 100 test ≥ 60) and model ECE 0.0456 ≤ 0.05,
+    but heuristic v0 clearly beats the logistic model (AUC 0.814 vs 0.782, log loss 0.526 vs
+    0.548, Brier 0.176 vs 0.189) → keep_heuristic **on model-quality grounds**. The 40-match
+    "model edges heuristic" result was noise. Interim n=142 run confirmed the trend.
+    Interpretation: the hand-tuned time-weighted gold interaction outperforms linear features —
+    exactly the gap backlog items 5 (minute-interaction features) and 6 (boosting) target.
+  - **Expected**: grouped baselines still do not beat zero meaningfully (GD@10 zero MAE 616.9 vs
+    role_side 620.9 — the small-sample side signal vanished); richer context (matchup/tier)
+    needed before expected values become actionable → report_only stands.
 
 ---
 
@@ -420,6 +435,10 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-18 | `pytest` | 209 passed | + match collector (dedupe, cap, abort, failure isolation) |
 | 2026-07-18 | `match_collector --backfill` | 48 backfilled, 0 failed | derived tables restored from stored raw |
 | 2026-07-18 | `match_collector --max-new 3` | aborted: key rejected (401) | clean abort verified; full run needs fresh key |
+| 2026-07-18 | `pytest` | 210 passed | + riot-id seed resolution (rename fallback) |
+| 2026-07-18 | `match_collector` ×2 | 300 new matches, 0 failed | 350 q420 stored (344 timelines) |
+| 2026-07-18 | `train_advantage` (n=333) | keep_heuristic (quality) | volume+ECE gates pass; heuristic beats model — report `advantage_v1_2026-07-18_n333.json` |
+| 2026-07-18 | `train_expected` (n=332) | report_only | grouped baselines ≈ zero — report `expected_v1_2026-07-18_n333.json` |
 
 ## Changed Files in Current Phase
 
@@ -449,17 +468,16 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
 
 ## Next Action
 
-1. **Rotate RIOT_API_KEY** (user: developer.riotgames.com → regenerate dev key → update `.env` →
-   restart backend container), then run
-   `docker compose exec backend python -m app.services.match_collector --max-new 100`
-   (repeatable; each run adds up to 100 new ranked-solo matches).
-2. After volume grows: re-run `train_advantage` / `train_expected`, save reports to
-   `docs/ml/reports/`, compare against the 2026-07-18 baselines.
-3. Then either continue expanding (repeat 1–2 daily within key windows) or start Phase 9 —
-   Live Client collector (companion C1, master-plan §7.4).
+Volume gates now pass; the constraint moved from data to model quality. Candidates:
+1. **Advantage model iteration** (backlog 2/5/6, now unblocked): DATASET_VERSION 2 (terminal-frame
+   exclusion), minute-interaction features (the heuristic wins precisely on time-weighted gold),
+   then boosting only if it beats both the logistic and the heuristic on held-out data.
+2. **Phase 9 — Live Client collector** (companion C1, master-plan §7.4).
+3. Optional: further collection rounds (cheap — `match_collector --max-new 100`, seed pool barely
+   tapped) to widen patch coverage over time; keys rotate daily.
 
-ML adoption stays gated regardless: advantage model needs ≥300 matches + calibration; expected
-residuals need ≥300 matches + a baseline that clearly beats zero before any profile integration.
+Adoption rule unchanged: the heuristic stays in production until a candidate beats it on
+held-out log loss AND Brier with ECE ≤ 0.05 at ≥300 matches.
 
 Earlier phase limitations remain recorded above (Phase 5 best/risk_management mean, selection
 profile-vector basis; Phase 6 numeric-guard scope; Phase 7 terminal-frame optimism, aggregate-only

@@ -1,0 +1,117 @@
+{
+  "status": "evaluated",
+  "expected_version": 1,
+  "domain": "soloq",
+  "queue_id": 420,
+  "snapshot_minute": 10,
+  "matches": 332,
+  "participant_rows": 3320,
+  "split": {
+    "method": "temporal_match_grouped",
+    "test_fraction": 0.3,
+    "train_matches": 232,
+    "test_matches": 100,
+    "train_rows": 2320,
+    "test_rows": 1000
+  },
+  "baseline_evaluations": {
+    "gd_at_10": {
+      "zero": {
+        "mae": 616.892,
+        "rmse": 798.4358584131852,
+        "n": 1000
+      },
+      "role_mean": {
+        "mae": 616.892,
+        "rmse": 798.4358584131852,
+        "n": 1000
+      },
+      "role_side_mean": {
+        "mae": 620.9120689655172,
+        "rmse": 801.551279161691,
+        "n": 1000
+      }
+    },
+    "csd_at_10": {
+      "zero": {
+        "mae": 11.692,
+        "rmse": 15.363072609344785,
+        "n": 1000
+      },
+      "role_mean": {
+        "mae": 11.692,
+        "rmse": 15.363072609344785,
+        "n": 1000
+      },
+      "role_side_mean": {
+        "mae": 11.638,
+        "rmse": 15.364206259270533,
+        "n": 1000
+      }
+    },
+    "xpd_at_10": {
+      "zero": {
+        "mae": 513.07,
+        "rmse": 678.6345128270445,
+        "n": 1000
+      },
+      "role_mean": {
+        "mae": 513.07,
+        "rmse": 678.6345128270445,
+        "n": 1000
+      },
+      "role_side_mean": {
+        "mae": 514.1765,
+        "rmse": 681.5569285390807,
+        "n": 1000
+      }
+    }
+  },
+  "best_baselines": {
+    "gd_at_10": "zero",
+    "csd_at_10": "role_side_mean",
+    "xpd_at_10": "zero"
+  },
+  "residual_summary": {
+    "gd_at_10": {
+      "definition": "actual - expected",
+      "baseline": "zero",
+      "test_mean": 0.0,
+      "test_std": 798.4358584131852
+    },
+    "csd_at_10": {
+      "definition": "actual - expected",
+      "baseline": "role_side_mean",
+      "test_mean": 0.0,
+      "test_std": 15.364206259270533
+    },
+    "xpd_at_10": {
+      "definition": "actual - expected",
+      "baseline": "zero",
+      "test_mean": 0.0,
+      "test_std": 678.6345128270445
+    }
+  },
+  "verdict": {
+    "verdict": "report_only",
+    "reasons": [
+      "report_only_phase: residuals are not wired to any user-facing surface"
+    ],
+    "serving_min_matches": 300
+  },
+  "generated_at": "2026-07-18T09:15:52.316841+00:00",
+  "matches_excluded": {
+    "KR_8278069568": "remake_or_short",
+    "KR_8285453387": "remake_or_short",
+    "KR_8291412536": "remake_or_short",
+    "KR_8294876581": "no_minute_10_frame",
+    "KR_8297798154": "remake_or_short",
+    "KR_8297927306": "remake_or_short",
+    "KR_8298206604": "remake_or_short",
+    "KR_8302411524": "remake_or_short",
+    "KR_8302476798": "remake_or_short",
+    "KR_8303468275": "remake_or_short",
+    "KR_8303522609": "remake_or_short",
+    "KR_8303651598": "remake_or_short"
+  }
+}
