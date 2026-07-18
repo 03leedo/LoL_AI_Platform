@@ -1,0 +1,359 @@
+{
+  "status": "trained",
+  "model_version": 1,
+  "dataset_version": 1,
+  "domain": "soloq",
+  "queue_id": 420,
+  "matches": 526,
+  "snapshot_rows": 15207,
+  "split": {
+    "method": "temporal_match_grouped",
+    "test_fraction": 0.3,
+    "train_matches": 368,
+    "test_matches": 158,
+    "train_rows": 10514,
+    "test_rows": 4693
+  },
+  "model_eval": {
+    "n": 4693,
+    "roc_auc": 0.7810482094915504,
+    "log_loss": 0.5567651317550605,
+    "brier": 0.19077297012736477,
+    "ece": 0.04120521745746199,
+    "reliability": [
+      {
+        "bin_low": 0.0,
+        "bin_high": 0.1,
+        "count": 370,
+        "mean_predicted": 0.04806019590104539,
+        "observed_rate": 0.08378378378378379
+      },
+      {
+        "bin_low": 0.1,
+        "bin_high": 0.2,
+        "count": 287,
+        "mean_predicted": 0.1515102482687339,
+        "observed_rate": 0.15331010452961671
+      },
+      {
+        "bin_low": 0.2,
+        "bin_high": 0.3,
+        "count": 361,
+        "mean_predicted": 0.24868037201044593,
+        "observed_rate": 0.3407202216066482
+      },
+      {
+        "bin_low": 0.3,
+        "bin_high": 0.4,
+        "count": 441,
+        "mean_predicted": 0.351881253121397,
+        "observed_rate": 0.4036281179138322
+      },
+      {
+        "bin_low": 0.4,
+        "bin_high": 0.5,
+        "count": 725,
+        "mean_predicted": 0.4542381353698471,
+        "observed_rate": 0.47172413793103446
+      },
+      {
+        "bin_low": 0.5,
+        "bin_high": 0.6,
+        "count": 1156,
+        "mean_predicted": 0.5406053379888979,
+        "observed_rate": 0.5640138408304498
+      },
+      {
+        "bin_low": 0.6,
+        "bin_high": 0.7,
+        "count": 463,
+        "mean_predicted": 0.6482533685293682,
+        "observed_rate": 0.7429805615550756
+      },
+      {
+        "bin_low": 0.7,
+        "bin_high": 0.8,
+        "count": 337,
+        "mean_predicted": 0.7498509325034706,
+        "observed_rate": 0.8189910979228486
+      },
+      {
+        "bin_low": 0.8,
+        "bin_high": 0.9,
+        "count": 265,
+        "mean_predicted": 0.8493717400215259,
+        "observed_rate": 0.8830188679245283
+      },
+      {
+        "bin_low": 0.9,
+        "bin_high": 1.0,
+        "count": 288,
+        "mean_predicted": 0.9521456596060204,
+        "observed_rate": 0.9791666666666666
+      }
+    ]
+  },
+  "baseline_evals": {
+    "constant_train_rate": {
+      "n": 4693,
+      "roc_auc": 0.5,
+      "log_loss": 0.6943292029194768,
+      "brier": 0.25059096077771514,
+      "ece": 0.041785913810656494,
+      "reliability": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "count": 0
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "count": 0
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.3,
+          "count": 0
+        },
+        {
+          "bin_low": 0.3,
+          "bin_high": 0.4,
+          "count": 0
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "count": 4693,
+          "mean_predicted": 0.4922008750237778,
+          "observed_rate": 0.5339867888344343
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6,
+          "count": 0
+        },
+        {
+          "bin_low": 0.6,
+          "bin_high": 0.7,
+          "count": 0
+        },
+        {
+          "bin_low": 0.7,
+          "bin_high": 0.8,
+          "count": 0
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "count": 0
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "count": 0
+        }
+      ]
+    },
+    "heuristic_v0": {
+      "n": 4693,
+      "roc_auc": 0.7896053586618453,
+      "log_loss": 0.5552009269544038,
+      "brier": 0.18791898252716813,
+      "ece": 0.04364265927977838,
+      "reliability": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "count": 551,
+          "mean_predicted": 0.04367513611615245,
+          "observed_rate": 0.0852994555353902
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "count": 254,
+          "mean_predicted": 0.1501732283464567,
+          "observed_rate": 0.23228346456692914
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.3,
+          "count": 249,
+          "mean_predicted": 0.2518353413654619,
+          "observed_rate": 0.321285140562249
+        },
+        {
+          "bin_low": 0.3,
+          "bin_high": 0.4,
+          "count": 323,
+          "mean_predicted": 0.35061300309597526,
+          "observed_rate": 0.38699690402476783
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "count": 814,
+          "mean_predicted": 0.45872235872235867,
+          "observed_rate": 0.45454545454545453
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6,
+          "count": 954,
+          "mean_predicted": 0.5303574423480084,
+          "observed_rate": 0.6037735849056604
+        },
+        {
+          "bin_low": 0.6,
+          "bin_high": 0.7,
+          "count": 354,
+          "mean_predicted": 0.645274011299435,
+          "observed_rate": 0.6779661016949152
+        },
+        {
+          "bin_low": 0.7,
+          "bin_high": 0.8,
+          "count": 287,
+          "mean_predicted": 0.7465226480836237,
+          "observed_rate": 0.7491289198606271
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "count": 263,
+          "mean_predicted": 0.8540798479087452,
+          "observed_rate": 0.7756653992395437
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "count": 644,
+          "mean_predicted": 0.9558944099378882,
+          "observed_rate": 0.9161490683229814
+        }
+      ]
+    }
+  },
+  "time_bucket_calibration": [
+    {
+      "minutes": "0-9",
+      "n": 1580,
+      "brier": 0.23422002789357055,
+      "ece": 0.026317867682650074
+    },
+    {
+      "minutes": "10-19",
+      "n": 1537,
+      "brier": 0.1753731538670654,
+      "ece": 0.05476269199472269
+    },
+    {
+      "minutes": "20-29",
+      "n": 1154,
+      "brier": 0.14887074140699622,
+      "ece": 0.042482661975700255
+    },
+    {
+      "minutes": "30-200",
+      "n": 422,
+      "brier": 0.19877851103916638,
+      "ece": 0.13295604111352602
+    }
+  ],
+  "patch_calibration": {
+    "16.13": {
+      "n": 666,
+      "brier": 0.17969248055889725,
+      "ece": 0.040279493236627814
+    },
+    "16.14": {
+      "n": 4027,
+      "brier": 0.19260550205003654,
+      "ece": 0.05286526376830662
+    }
+  },
+  "verdict": {
+    "verdict": "keep_heuristic",
+    "reasons": [
+      "log_loss_not_better_than_heuristic_v0",
+      "brier_not_better_than_heuristic_v0"
+    ],
+    "thresholds": {
+      "min_matches": 300,
+      "min_test_matches": 60,
+      "max_ece": 0.05
+    }
+  },
+  "artifact": {
+    "model_version": 1,
+    "dataset_version": 1,
+    "model_type": "logistic_regression_gd",
+    "feature_names": [
+      "minute",
+      "gold_diff",
+      "xp_diff",
+      "cs_diff",
+      "tower_diff",
+      "dragon_diff",
+      "herald_diff",
+      "baron_diff"
+    ],
+    "means": [
+      14.613277534715618,
+      40.5483165303405,
+      -32.01569336123264,
+      -2.6645425147422483,
+      0.006372455773254708,
+      -0.19269545368080654,
+      0.08540992961765265,
+      -0.008084458816815675
+    ],
+    "stds": [
+      9.496831196909326,
+      3899.4081351953137,
+      4228.161185649484,
+      51.15786404444973,
+      2.1775082189305075,
+      1.3061653821766228,
+      0.5939667084540156,
+      0.4537075744947888
+    ],
+    "coefficients": [
+      -0.09167641176768732,
+      0.7380386472302064,
+      0.7061946779486653,
+      0.15289780163663477,
+      -0.10213361538663915,
+      0.24542596179888043,
+      0.009579679442882332,
+      -0.20116651808483257
+    ],
+    "intercept": -0.06364640165842243,
+    "domain": "soloq",
+    "queue_id": 420,
+    "train_matches": 368,
+    "train_rows": 10514
+  },
+  "generated_at": "2026-07-18T15:05:55.028141+00:00",
+  "matches_excluded": {
+    "KR_8278069568": "remake_or_short",
+    "KR_8285453387": "remake_or_short",
+    "KR_8291412536": "remake_or_short",
+    "KR_8293771310": "remake_or_short",
+    "KR_8296555595": "remake_or_short",
+    "KR_8297798154": "remake_or_short",
+    "KR_8297927306": "remake_or_short",
+    "KR_8298206604": "remake_or_short",
+    "KR_8301185645": "remake_or_short",
+    "KR_8302411524": "remake_or_short",
+    "KR_8302476798": "remake_or_short",
+    "KR_8303345041": "remake_or_short",
+    "KR_8303458884": "remake_or_short",
+    "KR_8303468275": "remake_or_short",
+    "KR_8303522609": "remake_or_short",
+    "KR_8303651598": "remake_or_short",
+    "KR_8303722285": "remake_or_short",
+    "KR_8303780262": "remake_or_short"
+  }
+}

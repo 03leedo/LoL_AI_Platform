@@ -439,6 +439,9 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-18 | `match_collector` ×2 | 300 new matches, 0 failed | 350 q420 stored (344 timelines) |
 | 2026-07-18 | `train_advantage` (n=333) | keep_heuristic (quality) | volume+ECE gates pass; heuristic beats model — report `advantage_v1_2026-07-18_n333.json` |
 | 2026-07-18 | `train_expected` (n=332) | report_only | grouped baselines ≈ zero — report `expected_v1_2026-07-18_n333.json` |
+| 2026-07-19 | `match_collector` round 3 | 200 new, 0 failed | 550 q420 stored (544 timelines); pool measured EMERALD–DIAMOND (15-player sample: 8 E / 7 D) |
+| 2026-07-19 | `train_advantage` (n=526) | keep_heuristic (quality) | gap narrowed: heuristic AUC 0.790 vs model 0.781; model ECE 0.041 now beats heuristic 0.044 — report `advantage_v1_2026-07-19_n526.json` |
+| 2026-07-19 | `train_expected` (n=524) | report_only | zero baseline still best — report `expected_v1_2026-07-19_n524.json` |
 
 ## Changed Files in Current Phase
 
