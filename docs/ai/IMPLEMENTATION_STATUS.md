@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `6 — Evidence-grounded AI agent` **COMPLETE** (domain-reviewed; residual hardening 2026-07-18) → next is `7 — Advantage model` (per-minute snapshot dataset, logistic baseline → boosting, temporal/match-grouped splits, calibration report)
-- State: `PHASE_7_READY`
+- Phase: `7 — Advantage model` **COMPLETE** (2026-07-18, domain-reviewed) → next is `8 — Expected-performance models` (GD@10/CSD@10/XPD@10, grouped-average baselines first, residual = actual − expected)
+- State: `PHASE_8_READY`
 - Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -27,7 +27,7 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 | 4 Individual profile v1 | ✅ done (2026-07-14) | `services/profiles.py` (PROFILE_VERSION 1): 5 role-filtered dimensions, recency weighting exp(-days/14), shrinkage n_eff/(n_eff+8) toward cohort mean, local-sample cohort percentiles (explicitly labeled non-tier), submetrics + evidence match ids; `GET /summoner/../profile`; remake filter on aggregation reads |
 | 5 Representative/best/deviation matches | ✅ done (2026-07-14) | `services/representative_matches.py` (SELECTION_VERSION 1, rms_distance_0_100_v1): reuses profile per-match formulas, unified deterministic tie-breaks, coverage-first best selection, selections persisted (report_type=selections); UI panel with review links |
 | 6 Evidence-grounded AI agent | ✅ done (2026-07-14, +hardening 2026-07-18) | LLM contract v2 (REPORT_VERSION 5): observations require refs from payload ids, numeric-hallucination guard incl. Korean numeral notation, hypotheses capped, insufficient path, rule-owned strengths/weaknesses, usage logging; tool-calling loop deferred (payload already deterministic) |
-| 7 Advantage model | 🟡 v0 | rule-based logistic curve (`win_probability.py`); UI still says "승률" — rename in Phase 1; ML + calibration pending |
+| 7 Advantage model | ✅ pipeline done (2026-07-18) | `app/ml/` (DATASET_VERSION 1, MODEL_VERSION 1): snapshot dataset from raw timelines, temporal match-grouped split, pure-Python logistic + calibration report, adoption gate → verdict keep_heuristic on 40 local matches; serving stays `win_probability.py` heuristic until gate passes |
 | 8 Expected-performance models | ❌ | not started |
 | 9 Live Client collector | ❌ | planned as companion C1 (see master-plan §7.4) |
 | 10 Replay review mode | ❌ | planned as companion C2 / 리플레이 시어터 |
@@ -104,7 +104,60 @@ Additional outputs: win curve (`win_probability.py` — rename 승률→우세�
 
 ### Outcome
 
-Phase 6 — Evidence-grounded AI agent hardening: **COMPLETE** (2026-07-14, domain-reviewed).
+Phase 7 — Advantage model: reproducible per-minute snapshot dataset + logistic baseline +
+calibration report; heuristic curve stays in production unless documented adoption thresholds pass.
+
+Delivered (2026-07-18):
+- `backend/app/ml/advantage_dataset.py` (DATASET_VERSION 1): snapshot rows recomputed from raw
+  timelines via `analyze_match_timeline`; winner from match teams (ambiguous → excluded, reason
+  recorded); remake filter; temporal match-grouped split (oldest→train, newest 30%→test).
+- `backend/app/ml/advantage_model.py` (MODEL_VERSION 1): deterministic pure-Python logistic
+  regression (zero init, full batch, 1500 epochs, L2), self-contained JSON artifact,
+  `predict_from_artifact` as the single train/serve entry point; metrics AUC/log loss/Brier/
+  ECE/reliability + time-bucket and patch calibration; baselines = constant train winrate +
+  heuristic v0 on identical snapshots; adoption gate (≥300 matches, ≥60 test matches, beats both
+  baselines on log loss AND Brier, ECE ≤ 0.05) — verdict is data, never an automatic swap.
+- `python -m app.ml.train_advantage` CLI (runs in backend container); model definition doc
+  `docs/ml/ADVANTAGE_MODEL.md` (MODEL_RULES required-definition complete).
+- Real-data run (40 matches / 1137 snapshots): model AUC 0.785 vs heuristic 0.778, but ECE 0.086
+  vs 0.077 and volume ≪ gate → **verdict keep_heuristic**; report preserved at
+  `docs/ml/reports/advantage_v1_2026-07-18.json`. Serving path and UI untouched (우세도 유지).
+- 26 new tests (winner/patch derivation, split leakage properties, deterministic training,
+  artifact round-trip parity, metric edge cases, gate verdicts, queue-domain guard, exclusion
+  reasons).
+
+Domain review findings applied (2026-07-18): queue→domain mapping enforced (`QUEUE_DOMAINS`,
+unmapped queue → ValueError — soloq/pro can never silently mix); missing `game_creation`
+excluded with recorded reason (temporal split stays exact); terminal-frame limitation disclosed
+in ADVANTAGE_MODEL.md (final frames nearly encode the label — not strict leakage, both baselines
+see identical rows, but aggregate metrics are optimistic; final-frame exclusion or per-bucket
+gate planned as explicit DATASET_VERSION 2); doc exclusion fact corrected (remake_or_short).
+
+Phase 7 residual limitations: adoption gate is aggregate-only (per-time-bucket criterion
+deferred to DATASET_VERSION 2); patch calibration currently trivial (all local matches share a
+patch); local 41-match volume means held-out numbers carry wide uncertainty — the validated
+pipeline, not the model, is the deliverable.
+
+### Scope decisions (2026-07-18)
+
+- `match_timeline_features` table is currently empty (schema recreate wiped derived rows), but
+  48 raw timelines are preserved — the dataset builder recomputes features deterministically from
+  `riot_match_timelines` via the existing `analyze_match_timeline` (single formula source, clear
+  lineage). Local volume: 55 matches, 41 ranked-solo (q420) with timelines.
+- One row = one (match, minute) snapshot; features = inference-time-available only
+  (minute, gold/xp/cs/tower/dragon/herald/baron diffs); label = blue win from match raw teams.
+- Split: temporal by game_creation, match-grouped (all snapshots of a match in one split).
+- Baselines: constant train blue-winrate + existing heuristic v0 (`win_probability.py`).
+- No numpy/sklearn yet: 8 features × ~1k rows — deterministic pure-Python full-batch
+  gradient-descent logistic regression; boosting/sklearn only if a later phase justifies it.
+- Adoption gate centralized: model replaces heuristic only if held-out log loss AND Brier beat
+  both baselines, ECE ≤ threshold, and match count ≥ minimum — with 41 matches the expected
+  verdict is keep_heuristic + insufficient_data; the deliverable is the validated pipeline and
+  an honest report. UI untouched; `우세도` label unchanged.
+
+---
+
+Previous package — Phase 6 — Evidence-grounded AI agent hardening: **COMPLETE** (2026-07-14, domain-reviewed).
 
 Delivered (REPORT_VERSION 4, REPORT_PROMPT_VERSION 2):
 - LLM contract v2 in `services/reports.py`: output restricted to
@@ -284,6 +337,8 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-14 | `pytest` | 153 passed | + LLM contract v2 sanitizer (refs, numeric guard, caps, fallback) |
 | 2026-07-14 | frontend tsc --noEmit | pass | report 관측/가설 sections |
 | 2026-07-18 | `pytest` | 165 passed | + Korean-numeral guard (sino/native/digit+scale/할, false-positive + 일곱/일흔 dispatch regression) |
+| 2026-07-18 | `pytest` | 191 passed | + advantage dataset/model (split leakage, determinism, parity, metrics, gate, queue-domain guard) |
+| 2026-07-18 | `python -m app.ml.train_advantage` | keep_heuristic | 40 matches/1137 rows; report in docs/ml/reports/ |
 
 ## Changed Files in Current Phase
 
@@ -313,12 +368,15 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
 
 ## Next Action
 
-Phase 7 — Advantage model: reproducible per-minute snapshot dataset builder from stored
-`match_timeline_features`, logistic-regression baseline, temporal + match-grouped splits,
-calibration report (Brier/ECE/reliability curve); gradient boosting only if it beats the baseline.
-Keep the 우세도 label and the heuristic curve until validation passes documented thresholds.
-Note: local match volume is small — the deliverable is the validated pipeline + honest report;
-model replacement happens only if metrics justify it.
+Phase 8 — Expected-performance models (docs/phases/PHASE_07_08_ML.md, docs/ml/MODEL_RULES.md):
+GD@10 / CSD@10 / XPD@10 expected values with residual output `actual − expected`. Start with
+grouped-average baselines (role, patch, side, matchup proxy) before any model; reuse the Phase 7
+pipeline skeleton (deterministic dataset builder, temporal match-grouped split, held-out report,
+adoption gate). Same volume caveat: deliverable is the validated pipeline + honest report.
+Periodically re-run `python -m app.ml.train_advantage` as ingested volume grows; adopt only when
+the documented gate passes (then wire the artifact behind the same win-curve output shape as an
+explicit change).
 
 Earlier phase limitations remain recorded above (Phase 5 best/risk_management mean, selection
-profile-vector basis; Phase 6 numeric-guard scope).
+profile-vector basis; Phase 6 numeric-guard scope; Phase 7 terminal-frame optimism, aggregate-only
+gate).
