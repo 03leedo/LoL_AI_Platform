@@ -36,8 +36,10 @@ logger = logging.getLogger(__name__)
 # v3: queue-filtered aggregation + analyzable-death denominator (Phases 2/3)
 # v4: evidence-grounded LLM contract — observations/hypotheses with enforced
 #     refs, numeric-hallucination guard, rule-owned strengths/weaknesses (Phase 6)
-REPORT_VERSION = 4
-REPORT_PROMPT_VERSION = 2
+# v5: numeric guard extended to Korean numeral notation (삼십오 퍼센트, N할) —
+#     closes the digits-only gap recorded as a Phase 6 residual limitation
+REPORT_VERSION = 5
+REPORT_PROMPT_VERSION = 3
 MIN_GAMES_FOR_REPORT = 3
 DEFAULT_QUEUE_ID = 420  # ranked solo
 
@@ -72,6 +74,7 @@ LLM_SYSTEM_PROMPT = (
     '"practice_suggestions": ["다음 몇 판 동안 시도할 실험 + 확인할 지표"]} '
     "규칙: observations 최대 4개(각각 refs 필수 — 입력 payload의 pattern id나 match id만 사용), "
     "hypotheses 최대 3개, practice_suggestions 최대 3개(명령이 아니라 실험 제안으로). "
+    "숫자는 반드시 아라비아 숫자로만 표기하라(한글 숫자 표기 금지 — '삼십오 퍼센트'가 아니라 '35%'). "
     '입력의 근거가 리포트를 쓰기에 부족하면 다른 키 없이 {"insufficient": true, "reason": "짧은 이유"}만 출력하라. '
     "모든 텍스트는 한국어."
 )
@@ -314,6 +317,100 @@ def _build_llm_payload(
 
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
+_SINO_DIGITS = {"영": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9}
+_SINO_MULTIPLIERS = {"십": 10, "백": 100, "천": 1000, "만": 10000}
+_NATIVE_TENS = {
+    "열": 10, "스무": 20, "스물": 20, "서른": 30, "마흔": 40,
+    "쉰": 50, "예순": 60, "일흔": 70, "여든": 80, "아흔": 90,
+}
+_NATIVE_ONES = {
+    "한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6,
+    "일곱": 7, "여덟": 8, "아홉": 9,
+}
+# Quantity words a numeral must be bound to before the guard treats it as a
+# numeric claim (bare syllables like 이/사 are too ambiguous on their own).
+_KOREAN_NUMBER_UNITS = (
+    "퍼센트|프로|할|골드|점|분|초|킬|데스|어시스트|판|경기|회|번|건|배|레벨|미니언|와드|개|명|%"
+)
+_NATIVE_NUMBER_PATTERN = (
+    "(?:" + "|".join(_NATIVE_TENS) + ")(?:" + "|".join(_NATIVE_ONES) + ")?"
+    "|" + "|".join(_NATIVE_ONES)
+)
+# Token alternatives: digit+scale mixes (9만, 2천, 2만5천), plain digits (only
+# consumed for 할), sino-Korean compounds, native numerals with tens compounds.
+# Lookbehind keeps word-internal syllables from matching ("이겼지만 골드"의 "만 골드").
+_KOREAN_NUMBER_RE = re.compile(
+    rf"(?<![가-힣])(\d+[십백천만][\d영일이삼사오육칠팔구십백천만]*|\d+"
+    rf"|[영일이삼사오육칠팔구십백천만]+|{_NATIVE_NUMBER_PATTERN})\s*({_KOREAN_NUMBER_UNITS})"
+)
+
+
+def _parse_sino_korean(token: str) -> int | None:
+    """Parse sino-Korean numerals, including digit+scale mixes (2만5천 = 25000).
+
+    Returns None for unparseable tokens — the caller treats those as
+    unsupported numbers so the statement is dropped (fail-safe).
+    """
+    total = 0
+    digit = 0
+    index = 0
+    while index < len(token):
+        ch = token[index]
+        if ch.isdigit():
+            end = index
+            while end < len(token) and token[end].isdigit():
+                end += 1
+            digit = int(token[index:end])
+            index = end
+            continue
+        if ch in _SINO_DIGITS:
+            digit = _SINO_DIGITS[ch]
+        elif ch == "만":
+            group = total + digit
+            total = (group if group else 1) * _SINO_MULTIPLIERS[ch]
+            digit = 0
+        elif ch in _SINO_MULTIPLIERS:
+            total += (digit if digit else 1) * _SINO_MULTIPLIERS[ch]
+            digit = 0
+        else:
+            return None
+        index += 1
+    return total + digit
+
+
+def _parse_native_korean(token: str) -> int:
+    for prefix, tens in _NATIVE_TENS.items():
+        if token.startswith(prefix):
+            rest = token[len(prefix):]
+            return tens + (_NATIVE_ONES.get(rest, 0) if rest else 0)
+    return _NATIVE_ONES[token]
+
+
+def _korean_numbers_in(text: str) -> list[int | None]:
+    """Values written in Korean numeral notation, bound to a quantity word.
+
+    Pure digit tokens are included only for the 할 notation (3할 = 30%); they
+    are otherwise already covered by _NUMBER_RE. A None entry marks an
+    unparseable numeral the caller must treat as unsupported.
+    """
+    values: list[int | None] = []
+    for match in _KOREAN_NUMBER_RE.finditer(text):
+        token, unit = match.group(1), match.group(2)
+        if token.isdigit():
+            if unit != "할":
+                continue
+            value: int | None = int(token)
+        # Native vocabulary first: 일곱/일흔 start with the sino digit 일 but
+        # are native numerals, not sino compounds.
+        elif token in _NATIVE_ONES or any(token.startswith(p) for p in _NATIVE_TENS):
+            value = _parse_native_korean(token)
+        else:
+            value = _parse_sino_korean(token)
+        if value is not None and unit == "할":
+            value *= 10  # N할 is prose for N*10 percent
+        values.append(value)
+    return values
+
 
 def _numbers_in(text: str) -> set[str]:
     allowed: set[str] = set()
@@ -339,6 +436,14 @@ def _statement_numbers_ok(text: str, payload_numbers: set[str]) -> bool:
         if token in payload_numbers:
             continue
         if value.is_integer() and str(int(value)) in payload_numbers:
+            continue
+        return False
+    for korean_value in _korean_numbers_in(text):
+        if korean_value is None:
+            return False
+        if korean_value <= FREE_NUMBER_MAX:
+            continue
+        if str(korean_value) in payload_numbers:
             continue
         return False
     return True

@@ -8,9 +8,9 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `6 — Evidence-grounded AI agent` **COMPLETE** (domain-reviewed) → next is `7 — Advantage model` (per-minute snapshot dataset, logistic baseline → boosting, temporal/match-grouped splits, calibration report)
+- Phase: `6 — Evidence-grounded AI agent` **COMPLETE** (domain-reviewed; residual hardening 2026-07-18) → next is `7 — Advantage model` (per-minute snapshot dataset, logistic baseline → boosting, temporal/match-grouped splits, calibration report)
 - State: `PHASE_7_READY`
-- Last updated: `2026-07-14`
+- Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
 
@@ -26,7 +26,7 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 | 3 Episode engine | ✅ core done (2026-07-14) | `services/episodes.py` (EPISODE_VERSION 1): time+distance fight clustering, elite availability windows, one-objective↔one-death attribution (METRIC_VERSION 3), objective-analyzable denominator in patterns/autopsy; deferred: episode persistence, consolidated death-context builder, HORDE/Atakhan windows |
 | 4 Individual profile v1 | ✅ done (2026-07-14) | `services/profiles.py` (PROFILE_VERSION 1): 5 role-filtered dimensions, recency weighting exp(-days/14), shrinkage n_eff/(n_eff+8) toward cohort mean, local-sample cohort percentiles (explicitly labeled non-tier), submetrics + evidence match ids; `GET /summoner/../profile`; remake filter on aggregation reads |
 | 5 Representative/best/deviation matches | ✅ done (2026-07-14) | `services/representative_matches.py` (SELECTION_VERSION 1, rms_distance_0_100_v1): reuses profile per-match formulas, unified deterministic tie-breaks, coverage-first best selection, selections persisted (report_type=selections); UI panel with review links |
-| 6 Evidence-grounded AI agent | ✅ done (2026-07-14) | LLM contract v2 (REPORT_VERSION 4): observations require refs from payload ids, numeric-hallucination guard, hypotheses capped, insufficient path, rule-owned strengths/weaknesses, usage logging; tool-calling loop deferred (payload already deterministic) |
+| 6 Evidence-grounded AI agent | ✅ done (2026-07-14, +hardening 2026-07-18) | LLM contract v2 (REPORT_VERSION 5): observations require refs from payload ids, numeric-hallucination guard incl. Korean numeral notation, hypotheses capped, insufficient path, rule-owned strengths/weaknesses, usage logging; tool-calling loop deferred (payload already deterministic) |
 | 7 Advantage model | 🟡 v0 | rule-based logistic curve (`win_probability.py`); UI still says "승률" — rename in Phase 1; ML + calibration pending |
 | 8 Expected-performance models | ❌ | not started |
 | 9 Live Client collector | ❌ | planned as companion C1 (see master-plan §7.4) |
@@ -123,10 +123,22 @@ Delivered (REPORT_VERSION 4, REPORT_PROMPT_VERSION 2):
 Deferred (recorded): Flash/Thinking model tiering; true tool-calling loop (payload assembly is
 already deterministic — the LLM never parses raw timelines).
 
-Phase 6 residual limitations (domain review): numeric guard covers Arabic digits only (한글 숫자
-표기는 통과); number existence ≠ semantic binding (진짜 숫자를 엉뚱한 주장에 붙일 수 있음 — 관측은
-refs로 완화, 요약/가설 산문은 미바인딩); experiment framing of suggestions is prompt-level only;
-hypotheses may carry zero refs (UI 라벨로 완화).
+Residual hardening 2026-07-18 (REPORT_VERSION 5, REPORT_PROMPT_VERSION 3, domain-reviewed):
+- Numeric guard extended to Korean numeral notation: sino-Korean compounds up to 만 scale
+  (삼십오, 이천), digit+scale mixes (9만, 2만5천), native numerals incl. tens compounds
+  (열다섯, 스물다섯, 서른…), N할→N*10% conversion; a numeral must be bound to a quantity word
+  (퍼센트/골드/점/…/개/명/%) and same rule applies (≤10 free, else must exist in payload).
+  Lookbehind prevents word-internal matches ("이겼지만 골드" ≠ 만 골드). Prompt now mandates
+  Arabic digits; REPORT_VERSION bump invalidates pre-guard caches.
+- Closed residual: "numeric guard covers Arabic digits only" — resolved.
+
+Phase 6 residual limitations (current): number existence ≠ semantic binding (진짜 숫자를 엉뚱한
+주장에 붙일 수 있음 — 관측은 refs로 완화, 요약/가설 산문은 미바인딩); experiment framing of
+suggestions is prompt-level only; hypotheses may carry zero refs (UI 라벨로 완화).
+Korean-numeral guard known gaps (fail direction noted): N할 N푼의 푼 무시(5할8푼=58이
+50으로 검사되어 정당한 문장이 탈락할 수 있음 — fail-safe), 소수+scale(1.5만) 오파싱 →
+탈락(fail-safe), 관용구 백배/백 번/스무 번째는 수량 주장으로 간주되어 문장 탈락(가용성 비용,
+오의미 출력은 불가), 한자 숫자(三十五)·수십/몇십 류 모호 수량은 미검사(구체 수치 아님).
 
 ---
 
@@ -271,6 +283,7 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-14 | frontend tsc --noEmit | pass | RepresentativeMatchesPanel |
 | 2026-07-14 | `pytest` | 153 passed | + LLM contract v2 sanitizer (refs, numeric guard, caps, fallback) |
 | 2026-07-14 | frontend tsc --noEmit | pass | report 관측/가설 sections |
+| 2026-07-18 | `pytest` | 165 passed | + Korean-numeral guard (sino/native/digit+scale/할, false-positive + 일곱/일흔 dispatch regression) |
 
 ## Changed Files in Current Phase
 

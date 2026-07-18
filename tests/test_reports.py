@@ -156,6 +156,149 @@ class SanitizeLlmStatementsTest(unittest.TestCase):
         )
         self.assertIsNone(result)
 
+    def test_korean_numeral_hallucination_is_dropped(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [
+                    {"text": "골드 손실이 삼십오 퍼센트로 관측됩니다.", "refs": ["KR_0"]}
+                ],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(result["observations"], [])
+
+    def test_korean_numeral_matching_payload_passes(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [
+                    {"text": "평균 사십오 점으로 관측됩니다.", "refs": ["KR_0"]}
+                ],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(len(result["observations"]), 1)
+
+    def test_small_native_numeral_is_free(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [
+                    {"text": "세 번 연속 데스가 기록됐습니다.", "refs": ["KR_0"]}
+                ],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(len(result["observations"]), 1)
+
+    def test_summary_with_korean_numeral_rejects_everything(self) -> None:
+        result = _sanitize_llm_statements(
+            {"summary": "표본의 구십 퍼센트에서 골드 손실이 났습니다.", "observations": []},
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertIsNone(result)
+
+    def test_hal_notation_is_converted_to_percent(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [{"text": "승률이 5할로 관측됩니다.", "refs": ["KR_0"]}],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(result["observations"], [])
+
+    def test_digit_scale_mix_matching_payload_passes(self) -> None:
+        payload = _numbers_in('{"gold_lost": 20000}')
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [{"text": "2만 골드 손해가 관측됩니다.", "refs": ["KR_0"]}],
+            },
+            self.KNOWN_REFS,
+            payload,
+        )
+        self.assertEqual(len(result["observations"]), 1)
+
+    def test_digit_scale_mix_hallucination_is_dropped(self) -> None:
+        payload = _numbers_in('{"gold_lost": 20000}')
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [{"text": "9만 골드 손해가 관측됩니다.", "refs": ["KR_0"]}],
+            },
+            self.KNOWN_REFS,
+            payload,
+        )
+        self.assertEqual(result["observations"], [])
+
+    def test_native_tens_compound_is_dropped(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [{"text": "열다섯 판 동안 반복됐습니다.", "refs": ["KR_0"]}],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(result["observations"], [])
+
+    def test_korean_numeral_with_percent_symbol_is_dropped(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [{"text": "손실이 삼십오%로 관측됩니다.", "refs": ["KR_0"]}],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(result["observations"], [])
+
+    def test_native_numeral_starting_with_sino_syllable_passes_free(self) -> None:
+        # 일곱(7)은 첫 글자가 sino 일(1)이지만 고유어 수사다 — 크래시 없이 자유 통과해야 한다.
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [
+                    {"text": "일곱 번 반복된 실수입니다.", "refs": ["KR_0"]}
+                ],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(len(result["observations"]), 1)
+
+    def test_native_tens_starting_with_sino_syllable_is_checked(self) -> None:
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [{"text": "일흔 판을 치렀습니다.", "refs": ["KR_0"]}],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(result["observations"], [])
+
+    def test_word_internal_syllable_before_unit_is_not_a_numeral(self) -> None:
+        # "이겼지만 골드"의 "만 골드"가 10000골드 주장으로 오인되면 안 된다.
+        result = _sanitize_llm_statements(
+            {
+                "summary": "요약.",
+                "observations": [
+                    {"text": "이겼지만 골드 차이가 벌어졌습니다.", "refs": ["KR_0"]}
+                ],
+            },
+            self.KNOWN_REFS,
+            self.PAYLOAD_NUMBERS,
+        )
+        self.assertEqual(len(result["observations"]), 1)
+
 
 class LlmContractV2Test(unittest.TestCase):
     def _content(self) -> dict:
