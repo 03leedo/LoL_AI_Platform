@@ -1,0 +1,107 @@
+{
+  "status": "evaluated",
+  "expected_version": 1,
+  "domain": "soloq",
+  "queue_id": 420,
+  "snapshot_minute": 10,
+  "matches": 40,
+  "participant_rows": 400,
+  "split": {
+    "method": "temporal_match_grouped",
+    "test_fraction": 0.3,
+    "train_matches": 28,
+    "test_matches": 12,
+    "train_rows": 280,
+    "test_rows": 120
+  },
+  "baseline_evaluations": {
+    "gd_at_10": {
+      "zero": {
+        "mae": 587.4666666666667,
+        "rmse": 733.0642991352578,
+        "n": 120
+      },
+      "role_mean": {
+        "mae": 587.4666666666667,
+        "rmse": 733.0642991352578,
+        "n": 120
+      },
+      "role_side_mean": {
+        "mae": 577.9511904761905,
+        "rmse": 726.5453519701215,
+        "n": 120
+      }
+    },
+    "csd_at_10": {
+      "zero": {
+        "mae": 9.716666666666667,
+        "rmse": 13.192801067248759,
+        "n": 120
+      },
+      "role_mean": {
+        "mae": 9.716666666666667,
+        "rmse": 13.192801067248759,
+        "n": 120
+      },
+      "role_side_mean": {
+        "mae": 9.753571428571428,
+        "rmse": 12.96918771288213,
+        "n": 120
+      }
+    },
+    "xpd_at_10": {
+      "zero": {
+        "mae": 528.3666666666667,
+        "rmse": 680.6853898828739,
+        "n": 120
+      },
+      "role_mean": {
+        "mae": 528.3666666666667,
+        "rmse": 680.6853898828739,
+        "n": 120
+      },
+      "role_side_mean": {
+        "mae": 527.2047619047619,
+        "rmse": 675.7988233637759,
+        "n": 120
+      }
+    }
+  },
+  "best_baselines": {
+    "gd_at_10": "role_side_mean",
+    "csd_at_10": "zero",
+    "xpd_at_10": "role_side_mean"
+  },
+  "residual_summary": {
+    "gd_at_10": {
+      "definition": "actual - expected",
+      "baseline": "role_side_mean",
+      "test_mean": 0.0,
+      "test_std": 726.5453519701215
+    },
+    "csd_at_10": {
+      "definition": "actual - expected",
+      "baseline": "zero",
+      "test_mean": 0.0,
+      "test_std": 13.192801067248759
+    },
+    "xpd_at_10": {
+      "definition": "actual - expected",
+      "baseline": "role_side_mean",
+      "test_mean": 0.0,
+      "test_std": 675.7988233637759
+    }
+  },
+  "verdict": {
+    "verdict": "report_only",
+    "reasons": [
+      "insufficient_data: 40 matches < 300 for serving",
+      "report_only_phase: residuals are not wired to any user-facing surface"
+    ],
+    "serving_min_matches": 300
+  },
+  "generated_at": "2026-07-18T07:54:05.764226+00:00",
+  "matches_excluded": {
+    "KR_8278069568": "remake_or_short"
+  }
+}

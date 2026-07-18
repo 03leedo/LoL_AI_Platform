@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `7 — Advantage model` **COMPLETE** (2026-07-18, domain-reviewed) → next is `8 — Expected-performance models` (GD@10/CSD@10/XPD@10, grouped-average baselines first, residual = actual − expected)
-- State: `PHASE_8_READY`
+- Phase: `8 — Expected-performance models` **COMPLETE** (2026-07-18, domain-reviewed) → next is `9 — Live Client collector` (companion C1, see master-plan §7.4) — or grow ingestion volume first, which every ML gate is waiting on
+- State: `PHASE_9_READY`
 - Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -28,7 +28,7 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 | 5 Representative/best/deviation matches | ✅ done (2026-07-14) | `services/representative_matches.py` (SELECTION_VERSION 1, rms_distance_0_100_v1): reuses profile per-match formulas, unified deterministic tie-breaks, coverage-first best selection, selections persisted (report_type=selections); UI panel with review links |
 | 6 Evidence-grounded AI agent | ✅ done (2026-07-14, +hardening 2026-07-18) | LLM contract v2 (REPORT_VERSION 5): observations require refs from payload ids, numeric-hallucination guard incl. Korean numeral notation, hypotheses capped, insufficient path, rule-owned strengths/weaknesses, usage logging; tool-calling loop deferred (payload already deterministic) |
 | 7 Advantage model | ✅ pipeline done (2026-07-18) | `app/ml/` (DATASET_VERSION 1, MODEL_VERSION 1): snapshot dataset from raw timelines, temporal match-grouped split, pure-Python logistic + calibration report, adoption gate → verdict keep_heuristic on 40 local matches; serving stays `win_probability.py` heuristic until gate passes |
-| 8 Expected-performance models | ❌ | not started |
+| 8 Expected-performance models | ✅ pipeline done (2026-07-18) | `app/ml/expected_performance.py` (EXPECTED_VERSION 1): GD/CSD/XPD@10 lane differentials, grouped-average baselines (zero/role/role_side, train-only fit, small-group fallback), residual = actual − expected; verdict report_only on 40 local matches — nothing user-facing |
 | 9 Live Client collector | ❌ | planned as companion C1 (see master-plan §7.4) |
 | 10 Replay review mode | ❌ | planned as companion C2 / 리플레이 시어터 |
 | 11 Highlight showcase | ❌ | planned as C3 (YouTube embed + R2 hybrid decided) |
@@ -100,11 +100,59 @@ All 0–100 clamped, `{value, confidence, direction}` + evidence list. Formulas 
 
 Additional outputs: win curve (`win_probability.py` — rename 승률→우세도 in Phase 1), turning points (`turning_points.py`), heatmap zones (`heatmaps.py`), patterns + autopsy (`patterns.py`), scorecard + role fit.
 
+## ML Improvement Backlog (recorded 2026-07-18, after Phase 7)
+
+Ordered by expected impact; each is an explicit versioned change, never a silent edit.
+
+1. **Data volume** — the binding constraint (40 usable matches). Grow ingestion before model work:
+   every gate threshold assumes ≥300 matches. Re-run `train_advantage` periodically; keep every
+   report in `docs/ml/reports/` so progress is comparable across volumes.
+2. **DATASET_VERSION 2** — exclude each match's terminal frame (or last N seconds) from training/
+   eval, or add per-time-bucket criteria to the adoption gate: terminal frames nearly encode the
+   label, so aggregate metrics are optimistic and a bad-mid-game model could pass the gate.
+3. **Per-bucket adoption gate** — coaching value lives in mid-game (10–29분) calibration; require
+   bucket-level ECE/Brier thresholds, not only aggregate.
+4. **Recalibration layer** — if the raw model stays miscalibrated at volume (ECE > threshold but
+   AUC clearly better), add Platt/isotonic recalibration fitted on a held-out calibration slice
+   before rejecting it outright.
+5. **Feature extensions (needs volume)** — elite sub-types (elder/soul point), inhibitors,
+   baron-buff-active window, side, patch; champion composition much later. Each = FEATURE bump +
+   dataset version bump.
+6. **Boosting** — only after logistic is beaten on held-out data (MODEL_RULES); revisit the
+   no-numpy decision at that point.
+7. **Patch calibration is currently trivial** — all local matches share one patch; becomes
+   meaningful (and a required check) once data spans patches.
+8. **Phase 6 guard leftovers** (low priority, fail-safe directions recorded): 할푼 fraction,
+   한자 numerals, idiom availability cost (백배/백 번), summary/hypothesis prose number binding.
+
 ## Active Work Package
 
 ### Outcome
 
-Phase 7 — Advantage model: reproducible per-minute snapshot dataset + logistic baseline +
+Phase 8 — Expected-performance models: per-participant GD@10 / CSD@10 / XPD@10 dataset from raw
+timelines, grouped-average expected values (baselines before any model, per MODEL_RULES),
+residual output `actual − expected`, temporal match-grouped held-out report. Report-only:
+no serving/profile integration this phase.
+
+Delivered (2026-07-18):
+- `backend/app/ml/expected_performance.py` (EXPECTED_VERSION 1): minute-10 lane differentials
+  paired by teamPosition (roles not filled exactly once per team are skipped; per-match exclusion
+  reasons recorded); grouped-average baselines zero / role_mean / role_side_mean fitted on train
+  only with small-group fallback (MIN_GROUP_N 10, role_side→role→zero); held-out MAE/RMSE per
+  target; residual = actual − expected with test mean/std; `predict_expected` single entry point.
+- Shared fetch extracted (`fetch_match_timeline_records` in advantage_dataset — queue→domain
+  guard now guards both builders); `python -m app.ml.train_expected` CLI; model definition doc
+  `docs/ml/EXPECTED_PERFORMANCE.md`.
+- Real-data run (40 matches / 400 rows, held-out 12/120): role_mean ≡ zero exactly (lane pairs
+  are anti-symmetric — per-role means vanish by construction); role_side_mean marginally better
+  for GD@10 (MAE 587.5→578.0) and XPD@10, worse for CSD@10 → **verdict report_only**; report at
+  `docs/ml/reports/expected_v1_2026-07-18.json`. No serving/profile/UI changes.
+- 13 new tests (pairing/anti-symmetry, jungle CS, minute-10 exclusion, duplicate-position skip,
+  train-only fitting + fallback, report shape/verdicts, split grouping).
+
+---
+
+Previous package — Phase 7 — Advantage model: reproducible per-minute snapshot dataset + logistic baseline +
 calibration report; heuristic curve stays in production unless documented adoption thresholds pass.
 
 Delivered (2026-07-18):
@@ -339,6 +387,8 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-18 | `pytest` | 165 passed | + Korean-numeral guard (sino/native/digit+scale/할, false-positive + 일곱/일흔 dispatch regression) |
 | 2026-07-18 | `pytest` | 191 passed | + advantage dataset/model (split leakage, determinism, parity, metrics, gate, queue-domain guard) |
 | 2026-07-18 | `python -m app.ml.train_advantage` | keep_heuristic | 40 matches/1137 rows; report in docs/ml/reports/ |
+| 2026-07-18 | `pytest` | 204 passed | + expected performance (pairing, baselines, fallback, report) |
+| 2026-07-18 | `python -m app.ml.train_expected` | report_only | 40 matches/400 rows; report in docs/ml/reports/ |
 
 ## Changed Files in Current Phase
 
@@ -368,15 +418,17 @@ Phase 1: `backend/app/services/analysis_semantics.py` (new), wording edits in `c
 
 ## Next Action
 
-Phase 8 — Expected-performance models (docs/phases/PHASE_07_08_ML.md, docs/ml/MODEL_RULES.md):
-GD@10 / CSD@10 / XPD@10 expected values with residual output `actual − expected`. Start with
-grouped-average baselines (role, patch, side, matchup proxy) before any model; reuse the Phase 7
-pipeline skeleton (deterministic dataset builder, temporal match-grouped split, held-out report,
-adoption gate). Same volume caveat: deliverable is the validated pipeline + honest report.
-Periodically re-run `python -m app.ml.train_advantage` as ingested volume grows; adopt only when
-the documented gate passes (then wire the artifact behind the same win-curve output shape as an
-explicit change).
+Two candidate directions (user decision):
+1. **Grow data volume** — the binding constraint on every ML gate (backlog item 1): widen
+   ingestion (more matches per lookup, scheduled refresh of known summoners), then periodically
+   re-run `train_advantage` / `train_expected` and compare reports across volumes.
+2. **Phase 9 — Live Client collector** (companion C1, master-plan §7.4): local desktop companion
+   streaming Live Client Data API during the user's own games; new runtime surface (separate
+   process, not the FastAPI backend).
+
+ML adoption stays gated regardless: advantage model needs ≥300 matches + calibration; expected
+residuals need ≥300 matches + a baseline that clearly beats zero before any profile integration.
 
 Earlier phase limitations remain recorded above (Phase 5 best/risk_management mean, selection
 profile-vector basis; Phase 6 numeric-guard scope; Phase 7 terminal-frame optimism, aggregate-only
-gate).
+gate; Phase 8 side-asymmetry signal marginal at current volume).

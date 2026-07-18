@@ -112,11 +112,15 @@ def snapshot_rows_for_match(
     return rows
 
 
-async def build_dataset(
+async def fetch_match_timeline_records(
     db: AsyncSession,
-    queue_id: int = DEFAULT_QUEUE_ID,
-) -> dict[str, Any]:
-    """Deterministic snapshot dataset from stored raw timelines."""
+    queue_id: int,
+) -> Any:
+    """Match + raw-timeline records for a domain-mapped queue, oldest first.
+
+    Shared by the ML dataset builders; refuses unmapped queues so soloq and
+    pro data can never be silently mixed.
+    """
     if queue_id not in QUEUE_DOMAINS:
         raise ValueError(
             f"queue {queue_id} has no domain mapping — refusing to build a mixed"
@@ -134,12 +138,20 @@ async def build_dataset(
         .where(RiotMatch.queue_id == queue_id)
         .order_by(RiotMatch.game_creation.asc(), RiotMatch.match_id.asc())
     )
-
     result = await db.execute(query)
+    return result.mappings()
+
+
+async def build_dataset(
+    db: AsyncSession,
+    queue_id: int = DEFAULT_QUEUE_ID,
+) -> dict[str, Any]:
+    """Deterministic snapshot dataset from stored raw timelines."""
+    records = await fetch_match_timeline_records(db, queue_id)
     rows: list[dict[str, Any]] = []
     matches_included: list[str] = []
     excluded: dict[str, str] = {}
-    for record in result.mappings():
+    for record in records:
         match_id = record["match_id"]
         match_raw = record["raw_json"] or {}
         timeline_raw = record["timeline_json"] or {}
