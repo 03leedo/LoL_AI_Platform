@@ -75,28 +75,43 @@ async def backfill_derived_tables(db: AsyncSession) -> dict[str, Any]:
     return {"backfilled": processed, "failed": failed}
 
 
-async def fetch_seed_puuids(db: AsyncSession, limit: int) -> list[str]:
-    """Snowball seeds: registered summoners first, then recent participants."""
-    seeds: list[str] = []
-    seen: set[str] = set()
+async def fetch_seed_riot_ids(db: AsyncSession, limit: int) -> list[tuple[str, str]]:
+    """Snowball seeds as (game_name, tag_line): registered summoners first,
+    then recent stored participants.
 
-    summoners = await db.execute(select(Summoner.puuid))
-    for (puuid,) in summoners.all():
-        if puuid and puuid not in seen:
-            seen.add(puuid)
-            seeds.append(puuid)
+    Seeds are riot ids, not stored puuids: puuids are encrypted per API
+    application, so after a key/app change the stored ones fail with
+    "Exception decrypting" — each seed is re-resolved via account-v1 under
+    the active key at collection time.
+    """
+    seeds: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(game_name: Any, tag_line: Any) -> None:
+        if not game_name or not tag_line:
+            return
+        key = (str(game_name), str(tag_line))
+        if key not in seen:
+            seen.add(key)
+            seeds.append(key)
+
+    summoners = await db.execute(select(Summoner.game_name, Summoner.tag_line))
+    for game_name, tag_line in summoners.all():
+        add(game_name, tag_line)
 
     participants = await db.execute(
-        select(MatchParticipant.puuid, RiotMatch.game_creation)
+        select(
+            MatchParticipant.raw_json["riotIdGameName"].astext,
+            MatchParticipant.raw_json["riotIdTagline"].astext,
+            RiotMatch.game_creation,
+        )
         .join(RiotMatch, RiotMatch.match_id == MatchParticipant.match_id)
         .order_by(desc(RiotMatch.game_creation), MatchParticipant.match_id, MatchParticipant.participant_id)
     )
-    for puuid, _ in participants.all():
+    for game_name, tag_line, _ in participants.all():
         if len(seeds) >= limit:
             break
-        if puuid and puuid not in seen:
-            seen.add(puuid)
-            seeds.append(puuid)
+        add(game_name, tag_line)
     return seeds[:limit]
 
 
@@ -120,7 +135,7 @@ async def collect_new_matches(
 ) -> dict[str, Any]:
     """Ingest up to max_new_matches not-yet-stored matches from seed players."""
     settings = get_settings()
-    seeds = await fetch_seed_puuids(db, limit=max_seeds)
+    seeds = await fetch_seed_riot_ids(db, limit=max_seeds)
     stats: dict[str, Any] = {
         "seeds_available": len(seeds),
         "seeds_used": 0,
@@ -131,18 +146,20 @@ async def collect_new_matches(
     }
     seen_this_run: set[str] = set()
 
-    for puuid in seeds:
+    for game_name, tag_line in seeds:
         if stats["new_matches"] >= max_new_matches:
             break
         stats["seeds_used"] += 1
         try:
+            account = await client.get_account_by_riot_id(game_name, tag_line)
+            puuid = account["puuid"]
             match_ids = await client.get_match_ids(puuid, count=per_seed_count, queue=queue_id)
         except RiotApiError as exc:
             if exc.status_code in _ABORT_STATUSES:
                 stats["aborted"] = f"riot key rejected ({exc.status_code}) — rotate RIOT_API_KEY"
                 break
             stats["failed"] += 1
-            logger.warning("Seed %s… match-id fetch failed: %s", puuid[:8], exc.message)
+            logger.warning("Seed %s#%s fetch failed: %s", game_name, tag_line, exc.message)
             continue
 
         fresh = [m for m in match_ids if m not in seen_this_run]

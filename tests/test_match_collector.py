@@ -7,13 +7,23 @@ from app.services.riot_client import RiotApiError
 
 
 class FakeClient:
-    def __init__(self, ids_by_seed: dict[str, object]) -> None:
+    """Seeds are riot ids; account lookup maps '<name>' → puuid 'puuid_<name>'."""
+
+    def __init__(self, ids_by_seed: dict[str, object], account_errors: dict[str, Exception] | None = None) -> None:
         self._ids_by_seed = ids_by_seed
+        self._account_errors = account_errors or {}
         self.calls: list[str] = []
 
+    async def get_account_by_riot_id(self, game_name: str, tag_line: str) -> dict:
+        if game_name in self._account_errors:
+            self.calls.append(game_name)
+            raise self._account_errors[game_name]
+        return {"puuid": f"puuid_{game_name}"}
+
     async def get_match_ids(self, puuid: str, count: int, queue: int) -> list[str]:
-        self.calls.append(puuid)
-        value = self._ids_by_seed.get(puuid, [])
+        seed = puuid.removeprefix("puuid_")
+        self.calls.append(seed)
+        value = self._ids_by_seed.get(seed, [])
         if isinstance(value, Exception):
             raise value
         return list(value)
@@ -30,8 +40,10 @@ def run_collect(client: FakeClient, seeds: list[str], existing: set[str], **kwar
         ingested.append(match_id)
 
     async def _run() -> dict:
+        riot_id_seeds = [(seed, "KR1") for seed in seeds]
         with patch(
-            "app.services.match_collector.fetch_seed_puuids", new=AsyncMock(return_value=seeds)
+            "app.services.match_collector.fetch_seed_riot_ids",
+            new=AsyncMock(return_value=riot_id_seeds),
         ), patch(
             "app.services.match_collector.fetch_existing_match_ids",
             new=AsyncMock(side_effect=lambda db, ids: {m for m in ids if m in existing}),
@@ -93,6 +105,18 @@ class CollectNewMatchesTest(unittest.TestCase):
                 "seed_a": RiotApiError("service unavailable", 503),
                 "seed_b": ["KR_1"],
             }
+        )
+        stats, ingested = run_collect(client, ["seed_a", "seed_b"], existing=set())
+
+        self.assertEqual(ingested, ["KR_1"])
+        self.assertEqual(stats["failed"], 1)
+        self.assertIsNone(stats["aborted"])
+
+    def test_unresolvable_riot_id_continues(self) -> None:
+        # e.g. the player renamed since the match was stored
+        client = FakeClient(
+            {"seed_b": ["KR_1"]},
+            account_errors={"seed_a": RiotApiError("account not found", 404)},
         )
         stats, ingested = run_collect(client, ["seed_a", "seed_b"], existing=set())
 
