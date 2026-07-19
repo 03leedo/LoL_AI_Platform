@@ -30,8 +30,10 @@ export function MatchCard({
   const kda = formatKda(match.kills, match.deaths, match.assists);
   const championName = match.champion_name ?? "Unknown";
 
+  const resultClass = match.win === null ? "" : match.win ? " is-win" : " is-loss";
+
   return (
-    <article className={isSelected ? "match-card is-selected" : "match-card"}>
+    <article className={`match-card${resultClass}${isSelected ? " is-selected" : ""}`}>
       <div className="champion-art">
         {match.champion_name && (
           <img
@@ -48,7 +50,7 @@ export function MatchCard({
       <div className="match-content">
         <div className="match-topline">
           <span className={match.win === null ? "result-badge" : match.win ? "result-badge win" : "result-badge loss"}>
-            {match.win === null ? "Result" : match.win ? "Win" : "Loss"}
+            {match.win === null ? "결과 없음" : match.win ? "승리" : "패배"}
           </span>
           <span>{queueLabel(match.queue_id)}</span>
           <span>{formatGameTime(match.game_creation)}</span>

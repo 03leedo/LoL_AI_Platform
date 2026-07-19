@@ -8,7 +8,7 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `9 — Live Client collector (C1)` **CORE DONE** (2026-07-19) — companion script + upload/reconcile API verified end-to-end; awaiting first real-game collection on the user's PC
+- Phase: `9 — Live Client collector (C1)` **CORE DONE** (2026-07-19) + `UI/UX 개편` (2026-07-19)
 - State: `PHASE_9_CORE_DONE`
 - Last updated: `2026-07-18`
 - Branch: `main`
@@ -155,6 +155,21 @@ Delivered (2026-07-19):
   analysis metrics (needs schema for health-based gambler refinement), packaged .exe.
 
 Not domain-reviewed: collection infrastructure only; no analysis semantics or metric changes.
+
+---
+
+UI/UX 개편 (2026-07-19, op.gg·lol.ps 참고 — user-requested):
+- 다크 테마 전환: `globals.css` 토큰 스왑(op.gg 다크 팔레트 — bg #0d1220, blue #5383e8,
+  loss red #e8546b, gold #c8a24a) + 하드코딩된 라이트 색상 30여 곳 정리; 시맨틱/지표/문구 변경 없음.
+- 글로벌 네비바(`GlobalNav.tsx`): 로고 + "게임이름#태그" 원형 검색(홈 제외), 홈은 op.gg식 중앙
+  히어로; 매치 카드는 승(파랑 틴트 #28344e)/패(레드 틴트 #59343b) 행 + 승리/패배 한글 뱃지;
+  티어 뱃지 골드.
+- **키 로테이션 대응 버그 수정**: 이전 키 시절 캐시된 경기 payload의 puuid는 앱 단위 암호화라
+  새 키로 해석한 puuid와 불일치 → 전적/복기가 비어 보임. `find_participant`(riot id 폴백,
+  대소문자 무시)와 `_effective_puuid`(review/analysis 라우트, 프론트가 game_name/tag_line
+  전달)로 해소. 5 new tests (`test_match_summaries.py`), 228 pass, tsc pass.
+- 잔여(기록): heatmap/rank-analysis 등 나머지 puuid 기반 흐름의 유효-puuid 통일은 미적용 —
+  신규 수집분은 현재 키와 일관되므로 구캐시 경기에서만 부분 공백 가능.
 
 ---
 

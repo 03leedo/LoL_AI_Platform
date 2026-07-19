@@ -30,7 +30,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <section className="search-hero">
+      <section className="search-hero is-home">
         <div className="hero-copy">
           <p className="eyebrow">LoL AI Platform</p>
           <h1>소환사 전적 분석</h1>

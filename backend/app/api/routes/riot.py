@@ -54,7 +54,7 @@ from app.services.scorecard import build_scorecard, scorecard_to_aggregate_rows
 from app.services.turning_points import detect_turning_points
 from app.services.llm_feedback import LlmFeedbackError, enrich_analysis_with_llm_feedback
 from app.services.match_data import get_match_cached, get_timeline_cached
-from app.services.match_summaries import summarize_match_for_player
+from app.services.match_summaries import find_participant, summarize_match_for_player
 from app.services.reports import get_or_create_report
 from app.services.representative_matches import (
     SELECTION_METHOD,
@@ -67,6 +67,23 @@ from app.services.timeline_analyzer import analyze_match_timeline
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _effective_puuid(
+    match: dict,
+    puuid: str,
+    game_name: str | None,
+    tag_line: str | None,
+) -> str:
+    """Puuid as stored inside this match payload.
+
+    Puuids are encrypted per API application; matches cached under a previous
+    key don't match a freshly resolved puuid, but the riot id still does.
+    """
+    participant = find_participant(match, puuid, game_name=game_name, tag_line=tag_line)
+    if participant and participant.get("puuid"):
+        return participant["puuid"]
+    return puuid
 
 
 def riot_error_to_http(exc: RiotApiError) -> HTTPException:
@@ -175,7 +192,13 @@ async def get_match_history(
         except Exception as exc:  # pragma: no cover - listing should survive local DB drift
             await db.rollback()
             logger.warning("Match history persistence skipped for %s: %s", match_id, exc)
-        summary = summarize_match_for_player(match_id=match_id, puuid=account["puuid"], match=match)
+        summary = summarize_match_for_player(
+            match_id=match_id,
+            puuid=account["puuid"],
+            match=match,
+            game_name=account.get("gameName", game_name),
+            tag_line=account.get("tagLine", tag_line),
+        )
         if summary:
             summaries.append(MatchSummaryResponse(**summary))
 
@@ -542,6 +565,8 @@ async def get_match_timeline_analysis(
 async def get_match_review(
     match_id: str,
     puuid: str = Query(..., min_length=1),
+    game_name: str | None = Query(default=None),
+    tag_line: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> MatchReviewResponse:
     settings = get_settings()
@@ -553,6 +578,7 @@ async def get_match_review(
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
+    puuid = _effective_puuid(match, puuid, game_name, tag_line)
     features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
     try:
         analysis = analyze_player_match(
@@ -617,6 +643,8 @@ async def get_match_review(
 async def get_match_player_analysis(
     match_id: str,
     puuid: str = Query(..., min_length=1),
+    game_name: str | None = Query(default=None),
+    tag_line: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> MatchPlayerAnalysisResponse:
     settings = get_settings()
@@ -628,6 +656,7 @@ async def get_match_player_analysis(
     except RiotApiError as exc:
         raise riot_error_to_http(exc) from exc
 
+    puuid = _effective_puuid(match, puuid, game_name, tag_line)
     features = analyze_match_timeline(match_id=match_id, match=match, timeline=timeline)
     await replace_match_participants(db=db, match_id=match_id, match=match)
     await replace_match_events(db=db, match_id=match_id, timeline=timeline)

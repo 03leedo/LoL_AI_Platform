@@ -688,13 +688,22 @@ export async function getMatchTimelineAnalysis(matchId: string): Promise<MatchTi
 
 export async function getMatchReview({
   matchId,
-  puuid
+  puuid,
+  gameName,
+  tagLine
 }: {
   matchId: string;
   puuid: string;
+  gameName?: string;
+  tagLine?: string;
 }): Promise<MatchReviewResponse> {
+  const params = new URLSearchParams({ puuid });
+  if (gameName && tagLine) {
+    params.set("game_name", gameName);
+    params.set("tag_line", tagLine);
+  }
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/review?puuid=${encodeURIComponent(puuid)}`,
+    `${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/review?${params.toString()}`,
     {
       cache: "no-store"
     }
@@ -709,13 +718,22 @@ export async function getMatchReview({
 
 export async function getMatchPlayerAnalysis({
   matchId,
-  puuid
+  puuid,
+  gameName,
+  tagLine
 }: {
   matchId: string;
   puuid: string;
+  gameName?: string;
+  tagLine?: string;
 }): Promise<MatchPlayerAnalysisResponse> {
+  const params = new URLSearchParams({ puuid });
+  if (gameName && tagLine) {
+    params.set("game_name", gameName);
+    params.set("tag_line", tagLine);
+  }
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/analysis?puuid=${encodeURIComponent(puuid)}`,
+    `${API_BASE_URL}/api/v1/riot/matches/${encodeURIComponent(matchId)}/analysis?${params.toString()}`,
     {
       cache: "no-store"
     }

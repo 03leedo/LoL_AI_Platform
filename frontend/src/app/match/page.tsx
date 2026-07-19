@@ -141,7 +141,7 @@ function MatchReviewPageInner() {
 
     async function load() {
       try {
-        const review = await getMatchReview({ matchId, puuid });
+        const review = await getMatchReview({ matchId, puuid, gameName, tagLine });
         if (cancelled) {
           return;
         }

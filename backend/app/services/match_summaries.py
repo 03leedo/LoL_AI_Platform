@@ -1,19 +1,42 @@
 from typing import Any
 
 
+def find_participant(
+    match: dict[str, Any],
+    puuid: str,
+    game_name: str | None = None,
+    tag_line: str | None = None,
+) -> dict[str, Any] | None:
+    """Locate the player's participant entry in a match payload.
+
+    Primary key is the puuid; matches cached under a previous API key carry
+    puuids encrypted for that app, so a riot-id fallback (case-insensitive)
+    keeps old cached matches readable after key rotation.
+    """
+    participants = match.get("info", {}).get("participants", [])
+    for item in participants:
+        if item.get("puuid") == puuid:
+            return item
+    if game_name and tag_line:
+        name_key = game_name.strip().lower()
+        tag_key = tag_line.strip().lower()
+        for item in participants:
+            if (
+                str(item.get("riotIdGameName") or "").strip().lower() == name_key
+                and str(item.get("riotIdTagline") or "").strip().lower() == tag_key
+            ):
+                return item
+    return None
+
+
 def summarize_match_for_player(
     match_id: str,
     puuid: str,
     match: dict[str, Any],
+    game_name: str | None = None,
+    tag_line: str | None = None,
 ) -> dict[str, Any] | None:
-    participant = next(
-        (
-            item
-            for item in match.get("info", {}).get("participants", [])
-            if item.get("puuid") == puuid
-        ),
-        None,
-    )
+    participant = find_participant(match, puuid, game_name=game_name, tag_line=tag_line)
     if participant is None:
         return None
 
