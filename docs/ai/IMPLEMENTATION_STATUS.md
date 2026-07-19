@@ -8,8 +8,8 @@ Build a professional individual-user LoL analysis platform whose metrics are evi
 
 ## Current Phase
 
-- Phase: `Advantage model iteration v2` **COMPLETE** (2026-07-19, domain-reviewed) — gate now fails on Brier alone (model wins log loss + ECE); next candidate is boosting (backlog 6, under the new selection-clean tuning rule) or Phase 9
-- State: `ADVANTAGE_V2_DONE`
+- Phase: `9 — Live Client collector (C1)` **CORE DONE** (2026-07-19) — companion script + upload/reconcile API verified end-to-end; awaiting first real-game collection on the user's PC
+- State: `PHASE_9_CORE_DONE`
 - Last updated: `2026-07-18`
 - Branch: `main`
 - Last commit: see `git log -1`
@@ -29,7 +29,7 @@ The repo predates this pack. Mapping of `docs/ai/EXECUTION_PLAN.md` phases to wh
 | 6 Evidence-grounded AI agent | ✅ done (2026-07-14, +hardening 2026-07-18) | LLM contract v2 (REPORT_VERSION 5): observations require refs from payload ids, numeric-hallucination guard incl. Korean numeral notation, hypotheses capped, insufficient path, rule-owned strengths/weaknesses, usage logging; tool-calling loop deferred (payload already deterministic) |
 | 7 Advantage model | ✅ pipeline done (2026-07-18) | `app/ml/` (DATASET_VERSION 1, MODEL_VERSION 1): snapshot dataset from raw timelines, temporal match-grouped split, pure-Python logistic + calibration report, adoption gate → verdict keep_heuristic on 40 local matches; serving stays `win_probability.py` heuristic until gate passes |
 | 8 Expected-performance models | ✅ pipeline done (2026-07-18) | `app/ml/expected_performance.py` (EXPECTED_VERSION 1): GD/CSD/XPD@10 lane differentials, grouped-average baselines (zero/role/role_side, train-only fit, small-group fallback), residual = actual − expected; verdict report_only on 40 local matches — nothing user-facing |
-| 9 Live Client collector | ❌ | planned as companion C1 (see master-plan §7.4) |
+| 9 Live Client collector | 🟢 core done (2026-07-19) | `companion/live_collector.py` + `/api/v1/live/*` (idempotent upload, final-match reconciliation); LCU pick/ban + metric merge deferred; awaiting first real-game run |
 | 10 Replay review mode | ❌ | planned as companion C2 / 리플레이 시어터 |
 | 11 Highlight showcase | ❌ | planned as C3 (YouTube embed + R2 hybrid decided) |
 | 12 Vision analysis | ❌ | last, per plan |
@@ -133,7 +133,32 @@ Ordered by expected impact; each is an explicit versioned change, never a silent
 
 ### Outcome
 
-Advantage model iteration v2 (backlog items 2+5): DATASET_VERSION 2 — exclude each match's
+Phase 9 — Live Client collector (C1, master-plan §7.4 + docs/phases/PHASE_09_12_LATER.md):
+opt-in, collection-only companion for the user's own games; local queue; idempotent sync;
+final-match reconciliation. No in-game exposure ever (PRD §19.3).
+
+Delivered (2026-07-19):
+- `companion/live_collector.py` (c1-0.1.0, Python stdlib only — no installs beyond Python):
+  polls `https://127.0.0.1:2999/liveclientdata/allgamedata` (1s default, configurable), compacts
+  to C1 scope (my health/gold/stats + deduped events), buffers in local SQLite, uploads AFTER
+  the game in 500-row batches with retry/backoff; unuploaded games re-upload on next start;
+  `companion/README.md` = install/run guide (user's PC).
+- Backend: `live_sessions`/`live_snapshots` tables (alembic 0005 + dev auto-create),
+  `POST /api/v1/live/sessions/{id}/snapshots` (idempotent — (session,seq) conflicts ignored),
+  `POST .../complete` (conservative reconciliation: riot id + game_creation window
+  [start−45m, start+10m], links only a single unambiguous candidate), `GET .../{id}`.
+- Verified end-to-end against the running backend: batch accepted, duplicate retry accepted=0,
+  complete → `reconciled` with the real stored match id (synthetic sessions removed after test).
+- 10 new tests (riot-id parsing, reconcile 0/1/ambiguous/no-start, snapshot compaction + event
+  dedup, game-start estimate); pytest pythonpath now includes repo root for companion imports.
+- Deferred (recorded): LCU pick/ban collection (틸트 지표 정밀화), merge of live snapshots into
+  analysis metrics (needs schema for health-based gambler refinement), packaged .exe.
+
+Not domain-reviewed: collection infrastructure only; no analysis semantics or metric changes.
+
+---
+
+Previous package — Advantage model iteration v2 (backlog items 2+5): DATASET_VERSION 2 — exclude each match's
 terminal frame (removes the near-label-encoding optimism disclosed in Phase 7 review) and add
 minute-interaction features (gold/xp diff × game-time weight — the exact axis where the
 hand-tuned heuristic wins). Single feature-derivation helper shared by training and any future
@@ -473,6 +498,9 @@ None. (Riot Personal App approval still pending — dev key rotation every 24h u
 | 2026-07-19 | `train_expected` (n=524) | report_only | zero baseline still best — report `expected_v1_2026-07-19_n524.json` |
 | 2026-07-19 | `pytest` | 213 passed | + dataset v2 (terminal-frame exclusion, interaction features) |
 | 2026-07-19 | `train_advantage` (n=526, dataset v2) | keep_heuristic (Brier only) | model wins LL 0.5690 vs 0.5728 + ECE; trails Brier 0.1956 vs 0.1943 — report `advantage_v2_2026-07-19_n526.json` |
+| 2026-07-19 | `pytest` | 223 passed | + live sessions (reconcile paths, idempotency contract, companion compaction) |
+| 2026-07-19 | live API e2e (curl) | pass | batch accept → duplicate retry accepted=0 → complete=reconciled w/ real match id |
+| 2026-07-19 | `alembic upgrade head --sql` | pass (offline) | 0005 live tables |
 
 ## Changed Files in Current Phase
 
