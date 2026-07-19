@@ -11,7 +11,7 @@ Layers on top of rule-computed analysis WITHOUT touching any metric formula:
 
 from typing import Any
 
-SEMANTICS_VERSION = 1
+SEMANTICS_VERSION = 2
 
 STATEMENT_KINDS = {"observation", "hypothesis", "limitation", "replay_question"}
 
@@ -36,7 +36,7 @@ MAX_REPLAY_QUESTIONS = 3
 
 STANDARD_LIMITATIONS = [
     "타임라인은 1분 단위 프레임이라 위치·골드 기반 판정에는 최대 ±60초 오차가 있습니다.",
-    "체력·스킬/스펠 사용·팀 의사소통 정보는 데이터에 없으므로 장면의 의도는 판정하지 않습니다.",
+    "체력은 1분 단위 스냅샷만 확인할 수 있고 스킬/스펠 사용·팀 의사소통은 알 수 없으므로, 연속 압박이나 장면의 의도는 판정하지 않습니다.",
 ]
 
 
