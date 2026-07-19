@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.services.episodes import attribute_objectives_to_deaths
+from app.services.laning_metrics import calculate_laning_metric, laning_evidence
 
 # Bump when any score formula changes; stored scores carry this so raw JSON
 # can be batch-recomputed and stale rows identified (master-plan §2).
@@ -11,7 +12,8 @@ from app.services.episodes import attribute_objectives_to_deaths
 #     Throw Index, instead of every death within the window; teamfight
 #     detection additionally requires spatial proximity (≤3500u) via the
 #     shared episode builder (Phase 3).
-METRIC_VERSION = 3
+# v4: 10-minute same-role opponent comparison adds a per-match laning score.
+METRIC_VERSION = 4
 
 BLUE_TEAM_ID = 100
 RED_TEAM_ID = 200
@@ -71,8 +73,11 @@ def analyze_player_match(
         team_id,
     )
     stability_score = _clamp_score(round(100 - death_cost * 0.6 - throw_index * 0.4))
+    laning_metric = calculate_laning_metric(participant, match, timeline)
 
     evidence = death_evidence + throw_evidence + objective_evidence + lead_evidence
+    if laning_metric is not None:
+        evidence.append(laning_evidence(laning_metric))
     evidence.sort(key=lambda item: (item["minute"], item["type"], item["title"]))
 
     return {
@@ -90,6 +95,11 @@ def analyze_player_match(
             "objective_setup_score": _score(objective_setup, "medium", "higher_is_better"),
             "lead_conversion_score": _score(lead_conversion, "medium", "higher_is_better"),
             "stability_score": _score(stability_score, "medium", "higher_is_better"),
+            "laning_score": _score(
+                laning_metric["score"] if laning_metric is not None else None,
+                "medium" if laning_metric is not None else "low",
+                "higher_is_better",
+            ),
         },
         "evidence": evidence[:12],
     }

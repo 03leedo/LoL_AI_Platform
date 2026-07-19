@@ -32,12 +32,40 @@ Known names may include:
 - Stability;
 - Objective;
 - Lead Conversion;
+- 10-minute Laning Score;
 - Gold Retention;
 - Gambler Index;
 - Teamfight Durability;
 - Death Acceleration.
 
 These names are discovery hints, not authoritative formulas.
+
+## 10-minute laning score
+This per-match score compares the player with the opposite team's participant
+in the same Riot role at the 10-minute timeline frame. It is a snapshot of the
+lane result in that match, not a permanent measure of player skill.
+
+Inputs:
+
+- `GD@10`: player gold minus same-role opponent gold;
+- `XPD@10`: player experience minus same-role opponent experience;
+- `CSD@10`: player lane and jungle CS minus same-role opponent CS.
+
+The differences are divided by held-out residual standard deviations from
+`expected_v1_2026-07-19_n524`, then combined as:
+
+```text
+z = 0.45 * GD@10 / 851.4679
+  + 0.35 * XPD@10 / 686.3047
+  + 0.20 * CSD@10 / 15.7186
+
+score = round(50 + 50 * clamp(z, -3, 3) / 3)
+```
+
+`50` means roughly even, a higher score means the player was ahead at 10
+minutes, and a lower score means the player was behind. Raw differences are
+kept in evidence. Confidence is capped at `medium` because the score cannot
+separate lane play from jungle pressure, roams, swaps, or matchup context.
 
 ## Preferred profile dimensions
 Initial profile dimensions:
