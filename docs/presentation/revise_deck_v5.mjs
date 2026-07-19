@@ -33,11 +33,17 @@ async function saveBlob(filePath, blob) {
 
 function updateArchitecture(presentation) {
   const slide = presentation.slides.getItem(2);
-  setText(slide, 13, "지표 10종·에피소드\n프로필·패턴 (규칙 계산)", {
+  setText(slide, 13, "지표 11종·에피소드\n프로필·패턴 (규칙 계산)", {
     fontSize: 18,
     color: "#FFFFFF",
     alignment: "center",
   });
+  setText(
+    slide,
+    24,
+    "모든 수치·패턴은 규칙 코드가 계산 — LLM은 새 숫자를 만들 수 없음 (환각 통제 + 비용 절감)\n원본 JSONB 보존 + 지표 버전 관리 — 공식이 바뀌면 재수집 없이 전체 재계산\nDocker Compose 로컬 스택 (FastAPI · Next.js · PostgreSQL 16) — 자동 회귀 테스트 통과 유지",
+    { fontSize: 18, color: "#334155" },
+  );
 }
 
 function updateMetricOverview(presentation) {
@@ -50,7 +56,7 @@ function updateMetricOverview(presentation) {
   setText(
     slide,
     28,
-    "+ 10분 라인 우세도 · 오브젝트 준비 · 리드 전환 · 변곡점 · 킬/데스 히트맵\n퍼포먼스와 위험·스타일 신호를 분리해 보여줍니다",
+    "+ 10분 자원 우세도 · 초반 교전 영향력 · 체력 압박 참고 신호\n오브젝트 준비 · 리드 전환 · 변곡점 · 킬/데스 히트맵",
     { fontSize: 18, bold: true, color: "#0B7A70" },
   );
 }
@@ -209,7 +215,7 @@ function updateRoadmap(presentation) {
   const summary = [
     [20, "1분", 44],
     [21, "승률 예측 단위", 18],
-    [22, "10종", 44],
+    [22, "11종", 44],
     [23, "경기 지표", 18],
     [24, "근거", 40],
     [25, "AI 입력 원칙", 18],

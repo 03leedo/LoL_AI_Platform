@@ -3,7 +3,7 @@ import path from "node:path";
 import { FileBlob, PresentationFile } from "@oai/artifact-tool";
 
 const EDIT_TARGETS = {
-  3: ["sh/61032lsz"],
+  3: ["sh/61032lsz", "sh/w7mp0bi9"],
   4: ["sh/je9cvixc", "sh/7mp0bi9s"],
   9: [
     "sh/dg7adsji",
@@ -105,7 +105,7 @@ async function main() {
               : "rewrite",
         reason:
           slide === 3
-            ? "Keep the analysis-engine metric count consistent after adding the lane comparison."
+            ? "Keep the analysis-engine metric count consistent after separating early combat from the resource comparison."
             : slide === 4
             ? "Add the implemented 10-minute same-role lane comparison to the metric overview."
             : slide === 9
@@ -129,7 +129,7 @@ async function main() {
       "Audience: project reviewers who need a clear product and model explanation without ML jargon.",
       "Communication job: show how post-game data becomes measurable review signals, grounded AI feedback, and a per-minute model probability curve.",
       "Typography and palette: preserve the inherited Noto Sans KR, white, navy, gold, teal, red, and blue system.",
-      "Slide 3: update the analysis engine from 9 to 10 implemented match metrics.",
+      "Slide 3: show 11 implemented match metrics after separating early combat impact from resource advantage.",
       "Slide 4: add the 10-minute same-role lane comparison to the metric overview.",
       "Slide 9: explain where AI interpretation is used in the product instead of focusing on sanitizer internals.",
       "Slide 10: preserve the actual model curve and use the inherited right panel for the training flow.",
@@ -141,7 +141,7 @@ async function main() {
     path.join(workspace, "deviation-log.txt"),
     [
       "Slide 4: title and bottom summary updated to include the implemented 10-minute lane comparison.",
-      "Slide 3: metric count updated from 9 to 10.",
+      "Slide 3: metric count updated to 11.",
       "Slide 9: internal validation copy replaced with product usage and fallback behavior.",
       "Slide 10: gold-advantage chart and its separator deleted; inherited text slots repositioned into a four-step training explanation.",
       "Slide 12: training-volume and internal phase counters replaced with product-facing characteristics.",
@@ -155,7 +155,9 @@ async function main() {
     [
       "Per-minute model curve source: locally cached Riot match timeline KR_8304213229 served through the project's model v1 integration.",
       "The slide describes the curve as an actual stored match example and labels the model experimental.",
-      "The lane comparison formula uses same-role GD@10, XPD@10, and CSD@10 with weights 0.45, 0.35, and 0.20.",
+      "The resource comparison uses same-role GD@10, XPD@10, and CSD@10 with weights 0.45, 0.35, and 0.20.",
+      "Early combat impact is separate: smoothed 10-minute kill participation plus direct same-role takedown differential.",
+      "Health pressure is low-confidence evidence only and never changes either score.",
       "AI report wording reflects the implemented grounded-report flow: computed evidence remains authoritative and the rules report remains available as fallback.",
     ].join("\n") + "\n",
     "utf8",
