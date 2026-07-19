@@ -228,6 +228,7 @@ export type MatchPlayerAnalysisResponse = {
     lead_conversion_score: PlayerAnalysisScore;
     stability_score: PlayerAnalysisScore;
     laning_score?: PlayerAnalysisScore | null;
+    early_impact_score?: PlayerAnalysisScore | null;
     gold_retention_score?: PlayerAnalysisScore | null;
     gambler_index?: PlayerAnalysisScore | null;
     teamfight_persistence_score?: PlayerAnalysisScore | null;

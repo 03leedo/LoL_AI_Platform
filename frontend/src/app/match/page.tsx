@@ -33,6 +33,7 @@ type ScoreCardEntry = {
 
 const SCORE_GROUP_FALLBACK: Record<string, ScoreGroup> = {
   laning_score: "performance",
+  early_impact_score: "performance",
   objective_setup_score: "performance",
   lead_conversion_score: "performance",
   stability_score: "performance",
@@ -60,9 +61,17 @@ function buildScoreCards(scores: MatchPlayerAnalysisResponse["scores"]): ScoreCa
   if (scores.laning_score) {
     cards.unshift({
       key: "laning_score",
-      label: "10분 라인 우세도",
+      label: "10분 자원 우세도",
       score: scores.laning_score,
       sublabel: "동일 역할 상대 대비 골드·경험치·CS 차이"
+    });
+  }
+  if (scores.early_impact_score) {
+    cards.splice(1, 0, {
+      key: "early_impact_score",
+      label: "10분 초반 교전",
+      score: scores.early_impact_score,
+      sublabel: "표본 보정 킬 관여율과 동일 역할 상대 직접 교환"
     });
   }
 
