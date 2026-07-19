@@ -61,7 +61,7 @@ from app.services.representative_matches import (
     SELECTION_VERSION,
     build_match_selections,
 )
-from app.services.win_probability import build_win_curve
+from app.services.win_prediction import build_served_win_curve
 from app.services.riot_client import RiotApiError, RiotClient
 from app.services.timeline_analyzer import analyze_match_timeline
 
@@ -552,12 +552,19 @@ async def get_match_timeline_analysis(
     await replace_match_participants(db=db, match_id=match_id, match=match)
     await replace_match_events(db=db, match_id=match_id, timeline=timeline)
     saved_frames = await replace_timeline_features(db=db, match_id=match_id, features=features)
+    win_prediction = build_served_win_curve(
+        features,
+        queue_id=(match.get("info") or {}).get("queueId"),
+    )
 
     return MatchTimelineAnalysisResponse(
         match_id=match_id,
         frame_count=len(saved_frames),
         frames=saved_frames,
-        win_curve=build_win_curve(features),
+        win_curve=win_prediction["curve"],
+        win_curve_source=win_prediction["source"],
+        win_curve_model_version=win_prediction["model_version"],
+        win_curve_dataset_version=win_prediction["dataset_version"],
     )
 
 
@@ -606,7 +613,11 @@ async def get_match_review(
 
     key_events = extract_key_events(match=match, timeline=timeline, puuid=puuid)
     assets = build_review_assets(match)
-    win_curve = build_win_curve(features)
+    win_prediction = build_served_win_curve(
+        features,
+        queue_id=(match.get("info") or {}).get("queueId"),
+    )
+    win_curve = win_prediction["curve"]
     turning_points = detect_turning_points(
         win_curve=win_curve,
         key_events=key_events,
@@ -631,6 +642,9 @@ async def get_match_review(
             frame_count=len(saved_frames),
             frames=saved_frames,
             win_curve=win_curve,
+            win_curve_source=win_prediction["source"],
+            win_curve_model_version=win_prediction["model_version"],
+            win_curve_dataset_version=win_prediction["dataset_version"],
         ),
         analysis=MatchPlayerAnalysisResponse(**analysis),
         key_events=key_events,

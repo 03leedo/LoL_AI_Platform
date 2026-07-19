@@ -96,6 +96,11 @@ class MatchTimelineAnalysisResponse(BaseModel):
     frame_count: int
     frames: list[TimelineFrameFeatureResponse]
     win_curve: list["WinCurvePointResponse"] = []
+    win_curve_source: Literal["model_v1_experimental", "heuristic_v0_fallback"] = (
+        "heuristic_v0_fallback"
+    )
+    win_curve_model_version: int | None = None
+    win_curve_dataset_version: int | None = None
 
 
 class WinCurvePointResponse(BaseModel):

@@ -1,22 +1,25 @@
-"""Advantage model v1: logistic regression + calibration report (Phase 7).
+"""Per-minute win prediction model v1 and calibration report (Phase 7).
 
-Pure-Python, deterministic full-batch gradient descent — 8 features and a few
+Pure-Python, deterministic full-batch gradient descent — 10 features and a few
 thousand rows do not justify a numpy/sklearn dependency yet (recorded scope
 decision; boosting arrives only if it beats this baseline on held-out data).
 
-The trained model NEVER replaces the production heuristic automatically:
-`decide_verdict` applies the documented adoption gate and the expected verdict
-on current local volume is keep_heuristic. Model quality is not player-skill
-accuracy; the output is called advantage (우세도), not win probability.
+Each row is one minute snapshot and the target is the match's final blue-side
+result. The model therefore answers "given the state at this minute, how often
+would blue eventually win?" rather than predicting a match before it starts.
+
+`decide_verdict` still applies the quality gate. The current model is exposed
+as an explicitly experimental review curve while the heuristic remains the
+fallback for unsupported queues or artifact failures.
 """
 
 import math
 from typing import Any
 
+from app.ml.advantage_features import FEATURE_NAMES, full_feature_row
+from app.ml.advantage_inference import predict_from_artifact, sigmoid as _sigmoid
 from app.ml.advantage_dataset import (
     DATASET_VERSION,
-    FEATURE_NAMES,
-    full_feature_row,
     temporal_match_split,
 )
 from app.services.win_probability import build_win_curve
@@ -42,13 +45,6 @@ ADOPTION_MIN_TEST_MATCHES = 60
 ADOPTION_MAX_ECE = 0.05
 
 PROB_CLIP = 1e-6
-
-
-def _sigmoid(z: float) -> float:
-    if z >= 0:
-        return 1.0 / (1.0 + math.exp(-z))
-    ez = math.exp(z)
-    return ez / (1.0 + ez)
 
 
 def _feature_vector(row: dict[str, Any]) -> list[float]:
@@ -95,17 +91,6 @@ def train_logistic(train_rows: list[dict[str, Any]]) -> dict[str, Any]:
         "coefficients": weights,
         "intercept": intercept,
     }
-
-
-def predict_from_artifact(artifact: dict[str, Any], row: dict[str, Any]) -> float:
-    """Inference-parity entry point: same math for training eval and serving."""
-    full = full_feature_row(row)
-    z = artifact["intercept"]
-    for name, mean, std, weight in zip(
-        artifact["feature_names"], artifact["means"], artifact["stds"], artifact["coefficients"]
-    ):
-        z += weight * ((float(full[name]) - mean) / std)
-    return _sigmoid(z)
 
 
 def log_loss(labels: list[int], probs: list[float]) -> float:

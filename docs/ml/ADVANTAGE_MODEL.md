@@ -1,13 +1,19 @@
-# Advantage Model v1 (Phase 7)
+# Per-minute Win Prediction Model v1 (Phase 7)
 
 Required definition per `docs/ml/MODEL_RULES.md`. Code: `backend/app/ml/`
 (`advantage_dataset.py`, `advantage_model.py`, `train_advantage.py`).
 
 ## Target
 
-Blue side wins the match (binary). Output is called **advantage (우세도)** —
-never "win probability" in user-facing copy — until calibration and held-out
-validation pass the adoption gate below.
+Blue side wins the match (binary). One prediction is produced for every minute
+snapshot, so the output means **the estimated chance that blue eventually wins
+given only the state available at that minute**. It is not a pre-game winner
+pick and it does not read future timeline frames.
+
+The current artifact has not passed every adoption-gate criterion, so the UI
+labels it `model v1 · experimental`. This makes the intended model curve
+visible for review without presenting it as a fully calibrated production
+probability.
 
 ## One training row
 
@@ -99,10 +105,11 @@ Verdict `adopt` requires ALL of (constants in `advantage_model.py`):
 - held-out log loss AND Brier better than both baselines;
 - held-out ECE ≤ 0.05.
 
-Otherwise `keep_heuristic`: the serving path (`win_probability.py`) is
-untouched — it remains the production curve and the fallback at all times.
-Adoption, when justified, is a separate explicit change behind the same output
-shape.
+Otherwise `keep_heuristic`: the rule-based curve remains the supported
+fallback. The match-review API may expose the v1 model curve for ranked solo
+queue as an explicitly experimental visualization; unsupported queues and
+artifact failures use `win_probability.py` instead. Full adoption still
+requires the gate above.
 
 ## Result history (reports in `docs/ml/reports/`)
 

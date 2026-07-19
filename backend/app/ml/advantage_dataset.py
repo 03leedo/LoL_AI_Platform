@@ -17,6 +17,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ml.advantage_features import (
+    FEATURE_NAMES,
+    derived_feature_values,
+    full_feature_row,
+)
 from app.models import RiotMatch, RiotMatchTimeline
 from app.services.timeline_analyzer import BLUE_TEAM_ID, analyze_match_timeline
 
@@ -31,46 +36,6 @@ MIN_GAME_DURATION_S = 300  # remakes are excluded, consistent with profiles/repo
 # may never be silently mixed (docs/ml/MODEL_RULES.md). Extending to a new
 # queue requires an entry here, and a non-soloq domain requires its own model.
 QUEUE_DOMAINS = {420: "soloq"}
-
-# Model inputs, in column order. Diffs are blue-minus-red; `minute` lets the
-# model learn time-dependent weighting; the ×time interactions expose the
-# late-gold-is-decisive axis the hand-tuned heuristic wins on.
-FEATURE_NAMES = [
-    "minute",
-    "gold_diff",
-    "xp_diff",
-    "cs_diff",
-    "tower_diff",
-    "dragon_diff",
-    "herald_diff",
-    "baron_diff",
-    "gold_diff_x_time",
-    "xp_diff_x_time",
-]
-
-
-def _time_weight(minute: int) -> float:
-    # Same shape as the heuristic's gold aging curve (win_probability.py).
-    return min(1.5, 0.5 + minute / 30.0)
-
-
-def derived_feature_values(row: dict[str, Any]) -> dict[str, float]:
-    """Interaction features computed from base snapshot fields.
-
-    Single derivation point shared by training and inference (parity): rows
-    never store these columns, so training and any future serving path cannot
-    drift apart.
-    """
-    time_weight = _time_weight(int(row["minute"]))
-    return {
-        "gold_diff_x_time": float(row["gold_diff"]) * time_weight,
-        "xp_diff_x_time": float(row["xp_diff"]) * time_weight,
-    }
-
-
-def full_feature_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {**row, **derived_feature_values(row)}
-
 
 def derive_blue_win(match_raw: dict[str, Any]) -> bool | None:
     """Blue-side result from the match payload; None when it is ambiguous."""
