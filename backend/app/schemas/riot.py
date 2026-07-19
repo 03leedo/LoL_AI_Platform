@@ -132,6 +132,7 @@ class PlayerAnalysisScoresResponse(BaseModel):
     lead_conversion_score: PlayerAnalysisScoreResponse
     stability_score: PlayerAnalysisScoreResponse
     laning_score: PlayerAnalysisScoreResponse | None = None
+    early_impact_score: PlayerAnalysisScoreResponse | None = None
     gold_retention_score: PlayerAnalysisScoreResponse | None = None
     gambler_index: PlayerAnalysisScoreResponse | None = None
     teamfight_persistence_score: PlayerAnalysisScoreResponse | None = None

@@ -1,7 +1,12 @@
 from typing import Any
 
 from app.services.episodes import attribute_objectives_to_deaths
-from app.services.laning_metrics import calculate_laning_metric, laning_evidence
+from app.services.laning_metrics import (
+    calculate_laning_metric,
+    early_impact_evidence,
+    lane_pressure_evidence,
+    laning_evidence,
+)
 
 # Bump when any score formula changes; stored scores carry this so raw JSON
 # can be batch-recomputed and stale rows identified (master-plan §2).
@@ -13,7 +18,9 @@ from app.services.laning_metrics import calculate_laning_metric, laning_evidence
 #     detection additionally requires spatial proximity (≤3500u) via the
 #     shared episode builder (Phase 3).
 # v4: 10-minute same-role opponent comparison adds a per-match laning score.
-METRIC_VERSION = 4
+# v5: early combat impact is separated from resources; sparse health snapshots
+#     remain low-confidence evidence and do not affect either score.
+METRIC_VERSION = 5
 
 BLUE_TEAM_ID = 100
 RED_TEAM_ID = 200
@@ -77,7 +84,13 @@ def analyze_player_match(
 
     evidence = death_evidence + throw_evidence + objective_evidence + lead_evidence
     if laning_metric is not None:
-        evidence.append(laning_evidence(laning_metric))
+        evidence.extend(
+            [
+                laning_evidence(laning_metric),
+                early_impact_evidence(laning_metric),
+                lane_pressure_evidence(laning_metric),
+            ]
+        )
     evidence.sort(key=lambda item: (item["minute"], item["type"], item["title"]))
 
     return {
@@ -98,6 +111,15 @@ def analyze_player_match(
             "laning_score": _score(
                 laning_metric["score"] if laning_metric is not None else None,
                 "medium" if laning_metric is not None else "low",
+                "higher_is_better",
+            ),
+            "early_impact_score": _score(
+                laning_metric["early_impact_score"]
+                if laning_metric is not None
+                else None,
+                laning_metric["early_impact_confidence"]
+                if laning_metric is not None
+                else "low",
                 "higher_is_better",
             ),
         },

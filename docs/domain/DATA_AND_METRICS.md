@@ -40,10 +40,15 @@ Known names may include:
 
 These names are discovery hints, not authoritative formulas.
 
-## 10-minute laning score
+## 10-minute early comparison
+Early play is split into separate resource and combat outputs. This prevents a
+roam or jungle-assisted kill from being treated as lane pressure, and prevents
+sparse health snapshots from silently changing the main score.
+
+### Resource advantage
 This per-match score compares the player with the opposite team's participant
 in the same Riot role at the 10-minute timeline frame. It is a snapshot of the
-lane result in that match, not a permanent measure of player skill.
+resource result in that match, not a permanent measure of player skill.
 
 Inputs:
 
@@ -66,6 +71,45 @@ score = round(50 + 50 * clamp(z, -3, 3) / 3)
 minutes, and a lower score means the player was behind. Raw differences are
 kept in evidence. Confidence is capped at `medium` because the score cannot
 separate lane play from jungle pressure, roams, swaps, or matchup context.
+
+### Early combat impact
+Champion-kill events up to 10 minutes produce a separate score:
+
+- player early KP = player kills and assists / allied team kills;
+- opponent early KP uses the same calculation for the same-role opponent;
+- direct takedown differential counts player involvement in the opponent's
+  death minus opponent involvement in the player's death.
+
+Small kill counts are smoothed toward 50 percent before scoring:
+
+```text
+smoothed_kp = (early_takedowns + 1) / (team_early_kills + 2)
+
+score = clamp(
+  50
+  + 40 * (player_smoothed_kp - opponent_smoothed_kp)
+  + 10 * clamp(direct_takedown_diff, -2, 2),
+  0,
+  100
+)
+```
+
+The score is `null` when neither team has a kill by 10 minutes. Confidence is
+`low` with one to three total early kills and at most `medium` from four kills.
+This is an early combat-impact measure, not a pure laning-skill measure.
+
+### Health-pressure evidence
+Health does not affect either score. For minutes 3 through 10, health pressure
+is shown only when both same-role players:
+
+- are alive and have valid timeline health values;
+- have valid positions;
+- are within 3,500 map units of each other.
+
+The evidence counts snapshots at or below 35 percent health. At least three
+comparable one-minute frames are required for a directional description.
+Confidence is always `low` because Match-V5 timeline frames do not capture the
+continuous trade, recall, potion, shield, or jungle-pressure sequence.
 
 ## Preferred profile dimensions
 Initial profile dimensions:
