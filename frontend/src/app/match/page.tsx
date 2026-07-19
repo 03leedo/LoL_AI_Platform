@@ -274,7 +274,7 @@ function MatchReviewPageInner() {
 
               {winCurve.length >= 2 && (
                 <div className="win-curve-section">
-                  <h3>우세도 흐름</h3>
+                  <h3>예상 승률 흐름</h3>
                   <WinCurveChart points={winCurve} team={playerAnalysis.player.team} />
                 </div>
               )}

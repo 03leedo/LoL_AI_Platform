@@ -6,7 +6,12 @@ export function WinCurveChart({ points, team }: { points: WinCurvePoint[]; team:
   }
 
   const invert = team === "red";
-  const label = invert ? "우리 팀 우세도 (규칙 기반 추정 · 검증 전)" : "블루팀 우세도";
+  const label = invert
+    ? "우리 팀 예상 승률 (규칙 기반 추정 · 검증 전)"
+    : "블루팀 예상 승률 (규칙 기반 추정 · 검증 전)";
+  const latestPoint = points[points.length - 1];
+  const latestProbability = invert ? 1 - latestPoint.blue_win_prob : latestPoint.blue_win_prob;
+  const latestPercent = Math.round(Math.max(0, Math.min(1, latestProbability)) * 100);
 
   const width = 760;
   const height = 220;
@@ -33,6 +38,9 @@ export function WinCurveChart({ points, team }: { points: WinCurvePoint[]; team:
         <polyline className="chart-line" points={polylinePoints} />
         <text x={padding} y={22}>
           {label}
+        </text>
+        <text x={width - padding} y={22} textAnchor="end">
+          현재 {latestPercent}%
         </text>
         <text x={width - padding} y={padding + 4} textAnchor="end">
           100%
