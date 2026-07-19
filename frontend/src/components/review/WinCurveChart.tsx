@@ -1,14 +1,24 @@
 import { WinCurvePoint } from "@/lib/api";
 
-export function WinCurveChart({ points, team }: { points: WinCurvePoint[]; team: "blue" | "red" }) {
+export function WinCurveChart({
+  points,
+  team,
+  source,
+  modelVersion
+}: {
+  points: WinCurvePoint[];
+  team: "blue" | "red";
+  source?: "model_v1_experimental" | "heuristic_v0_fallback";
+  modelVersion?: number | null;
+}) {
   if (points.length < 2) {
     return <div className="timeline-chart is-empty">No chart data</div>;
   }
 
   const invert = team === "red";
-  const label = invert
-    ? "우리 팀 예상 승률 (규칙 기반 추정 · 검증 전)"
-    : "블루팀 예상 승률 (규칙 기반 추정 · 검증 전)";
+  const label = source === "model_v1_experimental"
+    ? `우리 팀 모델 예상 승률 (v${modelVersion ?? 1} · 실험)`
+    : "우리 팀 예상 승률 (규칙 기반 fallback)";
   const latestPoint = points[points.length - 1];
   const latestProbability = invert ? 1 - latestPoint.blue_win_prob : latestPoint.blue_win_prob;
   const latestPercent = Math.round(Math.max(0, Math.min(1, latestProbability)) * 100);

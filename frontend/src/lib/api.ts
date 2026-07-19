@@ -99,6 +99,9 @@ export type MatchTimelineAnalysisResponse = {
   frame_count: number;
   frames: TimelineFrameFeature[];
   win_curve?: WinCurvePoint[];
+  win_curve_source?: "model_v1_experimental" | "heuristic_v0_fallback";
+  win_curve_model_version?: number | null;
+  win_curve_dataset_version?: number | null;
 };
 
 export type ScoreConfidence = "low" | "medium" | "high";

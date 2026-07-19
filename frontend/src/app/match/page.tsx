@@ -264,18 +264,45 @@ function MatchReviewPageInner() {
 
               {latestFrame && (
                 <div className="timeline-summary">
-                  <MiniMetric label="Gold" value={formatDiff(latestFrame.gold_diff)} />
-                  <MiniMetric label="XP" value={formatDiff(latestFrame.xp_diff)} />
-                  <MiniMetric label="CS" value={formatDiff(latestFrame.cs_diff)} />
+                  <MiniMetric
+                    label="Gold"
+                    value={formatDiff(
+                      latestFrame.gold_diff * (playerAnalysis.player.team === "red" ? -1 : 1)
+                    )}
+                  />
+                  <MiniMetric
+                    label="XP"
+                    value={formatDiff(
+                      latestFrame.xp_diff * (playerAnalysis.player.team === "red" ? -1 : 1)
+                    )}
+                  />
+                  <MiniMetric
+                    label="CS"
+                    value={formatDiff(
+                      latestFrame.cs_diff * (playerAnalysis.player.team === "red" ? -1 : 1)
+                    )}
+                  />
                 </div>
               )}
 
-              <TimelineChart frames={timeline.frames} />
+              <div className="win-curve-section">
+                <h3>골드 우세도 흐름</h3>
+                <TimelineChart frames={timeline.frames} team={playerAnalysis.player.team} />
+              </div>
 
               {winCurve.length >= 2 && (
                 <div className="win-curve-section">
-                  <h3>예상 승률 흐름</h3>
-                  <WinCurveChart points={winCurve} team={playerAnalysis.player.team} />
+                  <h3>
+                    {timeline.win_curve_source === "model_v1_experimental"
+                      ? "모델 예상 승률 흐름"
+                      : "예상 승률 흐름"}
+                  </h3>
+                  <WinCurveChart
+                    points={winCurve}
+                    team={playerAnalysis.player.team}
+                    source={timeline.win_curve_source}
+                    modelVersion={timeline.win_curve_model_version}
+                  />
                 </div>
               )}
 
