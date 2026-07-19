@@ -32,6 +32,7 @@ type ScoreCardEntry = {
 };
 
 const SCORE_GROUP_FALLBACK: Record<string, ScoreGroup> = {
+  laning_score: "performance",
   objective_setup_score: "performance",
   lead_conversion_score: "performance",
   stability_score: "performance",
@@ -55,6 +56,15 @@ function buildScoreCards(scores: MatchPlayerAnalysisResponse["scores"]): ScoreCa
     { key: "objective_setup_score", label: "Objective", score: scores.objective_setup_score },
     { key: "lead_conversion_score", label: "Lead Conversion", score: scores.lead_conversion_score }
   ];
+
+  if (scores.laning_score) {
+    cards.unshift({
+      key: "laning_score",
+      label: "10분 라인 우세도",
+      score: scores.laning_score,
+      sublabel: "동일 역할 상대 대비 골드·경험치·CS 차이"
+    });
+  }
 
   if (scores.gold_retention_score) {
     cards.push({
