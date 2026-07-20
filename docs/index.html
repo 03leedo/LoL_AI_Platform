@@ -874,6 +874,54 @@
       font-family: Consolas, monospace;
     }
 
+    @media print {
+      @page { size: 1600px 900px; margin: 0; }
+
+      html,
+      body {
+        width: auto;
+        height: auto;
+        overflow: visible;
+        background: var(--white);
+      }
+
+      .deck {
+        display: block;
+        width: 1600px;
+        height: auto;
+      }
+
+      .stage {
+        width: 1600px;
+        height: auto;
+        overflow: visible;
+        transform: none !important;
+        box-shadow: none;
+      }
+
+      .slide,
+      .slide.active {
+        position: relative;
+        inset: auto;
+        display: block !important;
+        width: 1600px;
+        height: 900px;
+        animation: none;
+        break-after: page;
+        page-break-after: always;
+      }
+
+      .slide:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+
+      .controls,
+      .progress,
+      .help {
+        display: none !important;
+      }
+    }
     @media (max-width: 760px) {
       .controls { right: 10px; bottom: 10px; }
       .controls button { width: 38px; height: 38px; }
@@ -1016,7 +1064,7 @@
           <div class="train-steps">
             <article class="train-step"><b>01 · 매 분 기록</b><p>각 경기의 골드·XP·CS·타워·드래곤·바론 차이를 한 줄로 만듭니다.</p></article>
             <article class="train-step"><b>02 · 정답 연결</b><p>그 경기에서 블루팀이 최종 승리했는지를 각 시점의 학습 정답으로 붙입니다.</p></article>
-            <article class="train-step"><b>03 · 경기째 분리</b><p>한 경기의 앞부분은 학습, 뒷부분은 테스트로 섞이지 않게 경기 전체를 나눕니다.</p></article>
+            <article class="train-step"><b>03 · 경기째 분리</b><p>오래된 경기로 학습하고 최신 경기로 시험합니다. 한 경기의 모든 분은 같은 묶음에 둡니다.</p></article>
             <article class="train-step"><b>04 · 매 분 다시 계산</b><p>미래 상황을 보지 않고 현재 분까지 확인된 정보만으로 승률을 출력합니다.</p></article>
           </div>
           <div class="scoreboard">
