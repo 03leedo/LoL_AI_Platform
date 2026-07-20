@@ -198,19 +198,107 @@ function updateModelSlide(presentation) {
   slide.charts.deleteById(rightChart.id);
 }
 
-function updateRoadmap(presentation) {
-  const slide = presentation.slides.getItem(11);
-  setText(slide, 6, "분당 승률 모델 고도화", {
-    fontSize: 24,
+function updateLocalCollector(presentation) {
+  const slide = presentation.slides.getItem(10);
+  setText(slide, 0, "확장 기능", {
+    fontSize: 18,
     bold: true,
-    color: "#FFFFFF",
+    color: "#D29B2E",
+  });
+  setText(slide, 1, "선택형 로컬 수집 — 경기 후 분석을 더 세밀하게", {
+    fontSize: 42,
+    bold: true,
+    color: "#1E2A3A",
+  });
+  setText(slide, 5, "게임 시작을 감지하고\n1초마다 상태를 확인", {
+    fontSize: 17,
+    color: "#E8EEF6",
+    alignment: "center",
+  });
+  setText(slide, 9, "체력·골드·이벤트를\n내 PC에 임시 저장", {
+    fontSize: 17,
+    color: "#E8EEF6",
+    alignment: "center",
   });
   setText(
     slide,
-    7,
-    "시간별 경기 상태로 승률을 예측하고, 검증 기준을 통과한 모델만 교체",
-    { fontSize: 18, color: "#B8C4D1" },
+    13,
+    "전송이 끊겨도 이어서 업로드\n같은 경기는 중복 저장하지 않음",
+    { fontSize: 17, color: "#E8EEF6", alignment: "center" },
   );
+  setText(slide, 17, "Riot ID와 시작 시각으로\n내 전적에 자동 연결", {
+    fontSize: 17,
+    color: "#FFFFFF",
+    alignment: "center",
+  });
+  setText(slide, 19, "사용자가 직접 켜는 선택 수집", {
+    fontSize: 19,
+    bold: true,
+    color: "#0B7A70",
+  });
+  setText(slide, 20, "경기 중에는 분석·조언을 표시하지 않고, 본인 게임만 수집", {
+    fontSize: 17,
+    color: "#334155",
+  });
+  setText(slide, 22, "분석 근거 보강", {
+    fontSize: 19,
+    bold: true,
+    color: "#0B7A70",
+  });
+  setText(slide, 23, "초 단위 체력·골드 변화로 위험 구간과 사망 전후 흐름을 더 세밀하게 복기", {
+    fontSize: 17,
+    color: "#334155",
+  });
+  setText(slide, 25, "가볍게 실행", {
+    fontSize: 19,
+    bold: true,
+    color: "#0B7A70",
+  });
+  setText(slide, 26, "게임 PC에서 실행하는 가벼운 단일 프로그램", {
+    fontSize: 17,
+    color: "#334155",
+  });
+}
+
+function updateRoadmap(presentation) {
+  const slide = presentation.slides.getItem(11);
+  const roadmap = [
+    {
+      titleIndex: 6,
+      bodyIndex: 7,
+      title: "역할별 플레이 분석 확장",
+      body: "탑·정글·미드·원딜·서포터마다 다른 역할과 판단 기준으로 지표를 분리",
+    },
+    {
+      titleIndex: 10,
+      bodyIndex: 11,
+      title: "지표 신뢰도 높이기",
+      body: "패치·티어·챔피언 상성별 기준값을 쌓고, 리플레이 검증으로 점수와 신뢰도를 보정",
+    },
+    {
+      titleIndex: 14,
+      bodyIndex: 15,
+      title: "분당 승률 모델 개선",
+      body: "더 다양한 경기로 학습하고, 검증 기준을 통과한 모델만 서비스에 반영",
+    },
+    {
+      titleIndex: 18,
+      bodyIndex: 19,
+      title: "리플레이 분석 확장",
+      body: "미니맵에서 10인 위치와 시야를 추출해 주요 장면의 판단 근거를 보강",
+    },
+  ];
+  for (const item of roadmap) {
+    setText(slide, item.titleIndex, item.title, {
+      fontSize: 24,
+      bold: true,
+      color: "#FFFFFF",
+    });
+    setText(slide, item.bodyIndex, item.body, {
+      fontSize: 18,
+      color: "#B8C4D1",
+    });
+  }
 
   const summary = [
     [20, "1분", 44],
@@ -248,6 +336,7 @@ async function main() {
   updateMetricOverview(presentation);
   updateAiReport(presentation);
   updateModelSlide(presentation);
+  updateLocalCollector(presentation);
   updateRoadmap(presentation);
 
   await fs.mkdir(qaDir, { recursive: true });

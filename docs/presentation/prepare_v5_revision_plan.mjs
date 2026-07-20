@@ -40,9 +40,29 @@ const EDIT_TARGETS = {
     "sh/qd4vmtwr",
     "ch/w7mp0bi9",
   ],
+  11: [
+    "sh/6tovahoz",
+    "sh/vahoza1g",
+    "sh/z25kb6xk",
+    "sh/sji5snel",
+    "sh/s72x4nap",
+    "sh/s36hcrmh",
+    "sh/xkf6dcbu",
+    "sh/mtwra5gb",
+    "sh/4r65wjud",
+    "sh/xc3ylc7u",
+    "sh/f6dcbulw",
+    "sh/4fu18jqh",
+  ],
   12: [
     "sh/ap4r65wj",
     "sh/za1gvy90",
+    "sh/hcrmhk3q",
+    "sh/orytsvu9",
+    "sh/h0fepkzu",
+    "sh/sfil0rqd",
+    "sh/ed8bat47",
+    "sh/7u54zido",
     "sh/wfyxobm5",
     "sh/l0rqd4vm",
     "sh/eloj2t83",
@@ -91,8 +111,10 @@ async function main() {
             ? "show where grounded AI interpretation appears in the product"
             : slide === 10
               ? "explain per-minute win prediction training with an actual model curve"
+              : slide === 11
+                ? "explain reliable post-game upload behavior in audience-friendly language"
               : slide === 12
-                ? "close with product principles and the next improvement areas"
+                ? "close with role-specific analysis and evidence reliability as the next priorities"
               : "preserve the existing presentation narrative",
       reuseMode: "duplicate-slide",
       editTargets: targets.map((shapeId) => ({
@@ -110,9 +132,11 @@ async function main() {
             ? "Add the implemented 10-minute same-role lane comparison to the metric overview."
             : slide === 9
               ? "Replace internal validation details with the AI report's user-facing role and usage locations."
-              : slide === 10
-                ? "Replace the gold comparison with a clear four-step training explanation while preserving the actual model win curve."
-                : "Replace training-volume and phase counters with audience-facing product characteristics and update the model roadmap wording.",
+            : slide === 10
+              ? "Replace the gold comparison with a clear four-step training explanation while preserving the actual model win curve."
+              : slide === 11
+                ? "Replace collector implementation jargon with concrete recording, retry, and duplicate-prevention behavior."
+                : "Prioritize role-specific metrics, confidence improvement, model validation, and replay evidence in the roadmap.",
       })),
     };
   });
@@ -133,7 +157,8 @@ async function main() {
       "Slide 4: add the 10-minute same-role lane comparison to the metric overview.",
       "Slide 9: explain where AI interpretation is used in the product instead of focusing on sanitizer internals.",
       "Slide 10: preserve the actual model curve and use the inherited right panel for the training flow.",
-      "Slide 12: replace collection/test/phase counters with product characteristics and clarify model improvement as future work.",
+      "Slide 11: explain optional local collection without API polling, SQLite queue, opt-in, or idempotency jargon.",
+      "Slide 12: lead with role-specific analysis and confidence improvement before model and replay expansion.",
     ].join("\n") + "\n",
     "utf8",
   );
@@ -144,8 +169,9 @@ async function main() {
       "Slide 3: metric count updated to 11.",
       "Slide 9: internal validation copy replaced with product usage and fallback behavior.",
       "Slide 10: gold-advantage chart and its separator deleted; inherited text slots repositioned into a four-step training explanation.",
-      "Slide 12: training-volume and internal phase counters replaced with product-facing characteristics.",
-      "Slides 1-2, 5-8, and 11 are preserved without edits.",
+      "Slide 11: idempotent upload wording replaced with interrupted-transfer and duplicate-prevention behavior.",
+      "Slide 12: roadmap reordered around role-specific analysis and metric confidence improvement.",
+      "Slides 1-2 and 5-8 are preserved without edits.",
       "No new slide layouts, external assets, or parallel overlay designs are introduced.",
     ].join("\n") + "\n",
     "utf8",
@@ -158,6 +184,7 @@ async function main() {
       "The resource comparison uses same-role GD@10, XPD@10, and CSD@10 with weights 0.45, 0.35, and 0.20.",
       "Early combat impact is separate: smoothed 10-minute kill participation plus direct same-role takedown differential.",
       "Health pressure is low-confidence evidence only and never changes either score.",
+      "Roadmap reliability work uses patch, tier, role, champion matchup, and replay-validation cohorts.",
       "AI report wording reflects the implemented grounded-report flow: computed evidence remains authoritative and the rules report remains available as fallback.",
     ].join("\n") + "\n",
     "utf8",
