@@ -405,6 +405,137 @@
       background: var(--white);
     }
 
+    .profile-screen { align-items: start; }
+    .profile-screen .screen-copy { padding-top: 6px; }
+    .profile-screen .screen-copy h2 { margin-bottom: 16px; }
+    .profile-screen .screen-copy > p { margin-bottom: 20px; }
+
+    .match-picks {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 24px;
+    }
+
+    .match-pick {
+      min-height: 142px;
+      padding: 16px 14px;
+      border-top: 5px solid var(--teal);
+      background: var(--paper);
+    }
+
+    .match-pick:nth-child(2) { border-color: var(--gold); }
+    .match-pick:nth-child(3) { border-color: var(--coral); }
+    .match-pick b { display: block; margin-bottom: 12px; font-size: 15px; }
+    .match-pick span { color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    .chart-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(330px, .55fr);
+      gap: 42px;
+      align-items: stretch;
+    }
+
+    .chart-panel {
+      padding: 28px 30px 22px;
+      border: 1px solid var(--line);
+      background: var(--white);
+    }
+
+    .chart-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .win-chart { display: block; width: 100%; height: 420px; overflow: visible; }
+    .chart-grid { stroke: #dbe3e6; stroke-width: 1; }
+    .chart-midline { stroke: #9eabb1; stroke-width: 2; stroke-dasharray: 7 7; }
+    .chart-line { fill: none; stroke: var(--teal); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+    .chart-area { fill: rgba(0, 169, 157, .11); }
+    .chart-label { fill: #6c7a81; font-size: 15px; font-weight: 700; }
+    .chart-point { fill: var(--coral); stroke: var(--white); stroke-width: 4; }
+
+    .chart-reading { padding: 30px; background: var(--ink); color: var(--white); }
+    .chart-reading h3 { color: var(--teal); font-size: 27px; }
+    .chart-reading p { color: #b8c3c7; font-size: 17px; line-height: 1.65; }
+    .chart-reading .reading-item { padding: 20px 0; border-bottom: 1px solid #3c484f; }
+    .chart-reading .reading-item strong { display: block; margin-bottom: 7px; color: var(--white); font-size: 18px; }
+
+    .plain-verdict {
+      margin-top: 20px;
+      padding: 18px 20px;
+      border-left: 6px solid var(--gold);
+      background: #fff7df;
+      color: #55451b;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    .collector-flow {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 54px;
+    }
+
+    .collector-flow::before {
+      position: absolute;
+      top: 48px;
+      right: 100px;
+      left: 100px;
+      height: 3px;
+      content: "";
+      background: #48545b;
+    }
+
+    .collector-step {
+      position: relative;
+      min-height: 260px;
+      padding: 96px 26px 26px;
+      border: 1px solid #46525a;
+      background: #1a2025;
+    }
+
+    .collector-step b {
+      position: absolute;
+      z-index: 1;
+      top: 22px;
+      left: 26px;
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      background: var(--teal);
+      color: var(--white);
+      font-family: Consolas, monospace;
+      font-size: 17px;
+    }
+
+    .collector-step:nth-child(3) b { background: var(--gold); color: var(--ink); }
+    .collector-step:nth-child(4) b { background: var(--coral); }
+    .collector-step p { color: #afbbc0; font-size: 16px; line-height: 1.55; }
+
+    .collector-rules {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 30px;
+    }
+
+    .collector-rule {
+      padding: 18px 20px;
+      border-left: 5px solid var(--teal);
+      background: #242c32;
+      color: #d8e0e4;
+      font-size: 15px;
+      line-height: 1.5;
+    }
     .episode-layout {
       display: grid;
       grid-template-columns: 1.05fr .95fr;
@@ -844,34 +975,60 @@
       </section>
 
       <section class="slide white" data-title="프로필 화면">
-        <div class="screen-layout">
-          <div class="screen-copy"><p class="chapter">Product screen 02</p><h2>한 판이 아니라<br>플레이 경향을 봅니다</h2><p>대표 경기, 최고 경기, 평소와 달랐던 경기를 자동으로 골라 복기의 출발점을 제공합니다.</p><div class="tag-row"><span class="tag">5차원 프로필</span><span class="tag">우세도 흐름</span><span class="tag">변곡점</span></div></div>
+        <div class="screen-layout profile-screen">
+          <div class="screen-copy">
+            <p class="chapter">Product screen 02</p>
+            <h2>한 판이 아니라<br>플레이 경향을 봅니다</h2>
+            <p>내 평소 성향과 비교해 복기를 시작할 경기를 자동으로 고릅니다.</p>
+            <div class="match-picks">
+              <article class="match-pick"><b>대표 경기</b><span>평소 성향과 가장 가까운 복기 시작점</span></article>
+              <article class="match-pick"><b>최고 경기</b><span>강점이 가장 선명하게 드러난 경기</span></article>
+              <article class="match-pick"><b>편차 경기</b><span>평소와 가장 달랐던 변화 확인 경기</span></article>
+            </div>
+          </div>
           <figure class="screen-frame coral-shadow"><img src="presentation/html/assets/image3.png" alt="LoL AI 플랫폼 개인 성향과 우세도 화면"></figure>
         </div>
-        <span class="slide-number">07 / 11</span>
+        <span class="slide-number"></span>
       </section>
 
-      <section class="slide" data-title="우세도 모델">
-        <p class="chapter">Data & machine learning</p>
-        <h2>매 분의 경기 상태로<br>그 시점의 승리 가능성을 학습합니다</h2>
+      <section class="slide" data-title="실제 승률 그래프">
+        <p class="chapter">Actual model curve</p>
+        <h2>실제 저장 경기에서<br>매 분 승률이 이렇게 움직였습니다</h2>
+        <div class="chart-layout">
+          <div class="chart-panel">
+            <div class="chart-meta"><span>블루팀 모델 예상 승률</span><span>0분 → 36분 · 실제 저장 경기</span></div>
+            <svg class="win-chart" id="winChart" viewBox="0 0 920 440" role="img" aria-label="0분부터 36분까지 블루팀 모델 예상 승률 그래프"></svg>
+          </div>
+          <aside class="chart-reading">
+            <h3>그래프 읽는 법</h3>
+            <div class="reading-item"><strong>50% 기준선</strong><p>50%보다 높으면 현재 상태에서 블루팀 승리 가능성을 더 높게 본 것입니다.</p></div>
+            <div class="reading-item"><strong>큰 움직임</strong><p>골드·경험치·타워·오브젝트 상태가 크게 달라진 구간입니다.</p></div>
+            <div class="reading-item"><strong>복기 연결</strong><p>변곡점의 킬과 오브젝트 로그를 함께 보며 왜 움직였는지 확인합니다.</p></div>
+          </aside>
+        </div>
+        <span class="slide-number"></span>
+      </section>
+
+      <section class="slide" data-title="모델 학습 방식">
+        <p class="chapter">How it learns</p>
+        <h2>여러 경기의 ‘그 순간’을 모아<br>최종 승패와 연결했습니다</h2>
         <div class="model-layout">
           <div class="train-steps">
-            <article class="train-step"><b>01 · SNAPSHOT</b><p>골드·XP·CS·타워·오브젝트 차이를 분 단위 행으로 생성합니다.</p></article>
-            <article class="train-step"><b>02 · LABEL</b><p>각 시점에 해당 경기의 최종 승패를 연결하되 미래 프레임은 입력하지 않습니다.</p></article>
-            <article class="train-step"><b>03 · SPLIT</b><p>같은 경기의 행이 학습과 테스트에 섞이지 않도록 경기 단위 시간 분할을 사용합니다.</p></article>
-            <article class="train-step"><b>04 · CALIBRATE</b><p>정확도뿐 아니라 Log Loss, Brier, ECE로 확률 자체의 품질을 검증합니다.</p></article>
+            <article class="train-step"><b>01 · 매 분 기록</b><p>각 경기의 골드·XP·CS·타워·드래곤·바론 차이를 한 줄로 만듭니다.</p></article>
+            <article class="train-step"><b>02 · 정답 연결</b><p>그 경기에서 블루팀이 최종 승리했는지를 각 시점의 학습 정답으로 붙입니다.</p></article>
+            <article class="train-step"><b>03 · 경기째 분리</b><p>한 경기의 앞부분은 학습, 뒷부분은 테스트로 섞이지 않게 경기 전체를 나눕니다.</p></article>
+            <article class="train-step"><b>04 · 매 분 다시 계산</b><p>미래 상황을 보지 않고 현재 분까지 확인된 정보만으로 승률을 출력합니다.</p></article>
           </div>
           <div class="scoreboard">
-            <h3>Dataset v2 · 526 matches</h3>
-            <div class="score-row header"><span>Metric</span><span>Logistic v1</span><span>Heuristic v0</span></div>
-            <div class="score-row"><span>AUC</span><span>0.768</span><span class="winner">0.775</span></div>
-            <div class="score-row"><span>Log Loss ↓</span><span class="winner">0.569</span><span>0.573</span></div>
-            <div class="score-row"><span>Brier ↓</span><span>0.196</span><span class="winner">0.194</span></div>
-            <div class="score-row"><span>ECE ↓</span><span class="winner">0.042</span><span>0.046</span></div>
-            <div class="verdict"><strong>현재 판단: 실험 모델 유지</strong><br>Brier 기준에서 휴리스틱을 넘지 못했기 때문에 운영 모델로 교체하지 않았습니다. 다음 비교 대상은 boosting 모델입니다.</div>
+            <h3>현재 상태 · 526경기 학습</h3>
+            <div class="score-row header"><span>확인 항목</span><span>학습 모델</span><span>기존 규칙</span></div>
+            <div class="score-row"><span>순위 구분</span><span>0.768</span><span class="winner">0.775</span></div>
+            <div class="score-row"><span>확률 오차</span><span class="winner">0.569</span><span>0.573</span></div>
+            <div class="score-row"><span>평균 오차</span><span>0.196</span><span class="winner">0.194</span></div>
+            <div class="plain-verdict"><strong>결론은 단순합니다.</strong><br>아직 모든 기준에서 기존 규칙보다 좋지 않아 ‘실험 모델’로만 보여줍니다. 더 많은 데이터와 Boosting 모델을 같은 방식으로 비교할 예정입니다.</div>
           </div>
         </div>
-        <span class="slide-number">08 / 11</span>
+        <span class="slide-number"></span>
       </section>
 
       <section class="slide dark" data-title="AI 리포트">
@@ -888,6 +1045,22 @@
         <span class="slide-number">09 / 11</span>
       </section>
 
+      <section class="slide dark" data-title="Live Client 확장">
+        <p class="chapter">Future direction · Live Client</p>
+        <h2>1분 단위 타임라인을 넘어<br>경기 후 복기를 더 세밀하게</h2>
+        <div class="collector-flow">
+          <article class="collector-step"><b>01</b><h3>게임 감지</h3><p>게임 시작을 확인하고 Live Client API에서 1초마다 상태를 읽습니다.</p></article>
+          <article class="collector-step"><b>02</b><h3>로컬 버퍼</h3><p>체력·골드·레벨·이벤트를 사용자의 PC에 임시 저장합니다.</p></article>
+          <article class="collector-step"><b>03</b><h3>경기 후 업로드</h3><p>게임 종료 뒤 전송하며, 중단돼도 이어서 보내고 중복 저장을 막습니다.</p></article>
+          <article class="collector-step"><b>04</b><h3>전적 자동 연결</h3><p>Riot ID와 경기 시작 시각으로 수집 데이터를 실제 전적과 연결합니다.</p></article>
+        </div>
+        <div class="collector-rules">
+          <div class="collector-rule"><strong>선택형 수집</strong><br>사용자가 직접 켠 본인 경기만 수집</div>
+          <div class="collector-rule"><strong>경기 후 분석</strong><br>경기 중 조언이나 분석은 표시하지 않음</div>
+          <div class="collector-rule"><strong>근거 보강</strong><br>사망 전후 체력·골드 변화를 초 단위로 복기</div>
+        </div>
+        <span class="slide-number"></span>
+      </section>
       <section class="slide" data-title="로드맵">
         <p class="chapter">Roadmap</p>
         <h2>다음 단계는 기능 수보다<br>분석의 신뢰도를 높이는 일입니다</h2>
@@ -986,9 +1159,41 @@
       touchStartX = null;
     }, { passive: true });
 
+    function renderWinChart() {
+      const values = [
+        52.7, 52.5, 47, 46.6, 51.2, 54, 44.7, 41.9, 38.3, 39.7,
+        60.8, 63.3, 60.5, 71.6, 73.5, 54.8, 51.7, 61.1, 65.2, 63,
+        73.8, 72.1, 52.7, 40.4, 43.8, 45.5, 56.9, 77.7, 73.3, 61.8,
+        62.3, 68.5, 71.2, 78, 75, 74.1, 64.6
+      ];
+      const svg = document.getElementById('winChart');
+      if (!svg) return;
+      const left = 66, right = 892, top = 24, bottom = 382;
+      const x = (i) => left + (i / (values.length - 1)) * (right - left);
+      const y = (value) => bottom - (value / 100) * (bottom - top);
+      const points = values.map((value, i) => [x(i), y(value)]);
+      const line = points.map(([px, py]) => px.toFixed(1) + ',' + py.toFixed(1)).join(' ');
+      const area = left + ',' + bottom + ' ' + line + ' ' + right + ',' + bottom;
+      const grid = [0, 25, 50, 75, 100].map((value) => {
+        const py = y(value);
+        const kind = value === 50 ? 'chart-midline' : 'chart-grid';
+        return '<line class="' + kind + '" x1="' + left + '" y1="' + py + '" x2="' + right + '" y2="' + py + '"></line><text class="chart-label" x="8" y="' + (py + 5) + '">' + value + '%</text>';
+      }).join('');
+      const ticks = [0, 10, 20, 30, 36].map((minute) =>
+        '<text class="chart-label" x="' + (x(minute) - 12) + '" y="420">' + minute + '분</text>'
+      ).join('');
+      const markers = [10, 15, 23, 27, 33].map((minute) =>
+        '<circle class="chart-point" cx="' + x(minute) + '" cy="' + y(values[minute]) + '" r="8"></circle>'
+      ).join('');
+      svg.innerHTML = grid + '<polygon class="chart-area" points="' + area + '"></polygon><polyline class="chart-line" points="' + line + '"></polyline>' + markers + ticks;
+    }
     window.addEventListener('resize', fitStage);
     const initial = Number.parseInt(location.hash.slice(1), 10);
-    fitStage();
+    slides.forEach((slide, index) => {
+      const number = slide.querySelector('.slide-number');
+      if (number) number.textContent = String(index + 1).padStart(2, '0') + ' / ' + slides.length;
+    });
+    renderWinChart();    fitStage();
     show(Number.isFinite(initial) ? initial - 1 : 0, false);
   </script>
 </body>
